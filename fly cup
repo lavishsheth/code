@@ -1,0 +1,174 @@
+
+#### TAHT's TO EXECUTE IN CONSOLE (COMMAND LINE), COPY AND PASTE
+PROJECT_ID=$(gcloud config get-value project)
+gsutil ls gs://spls/gsp394/tables | grep csv$ | while read file; do tname=`echo $file|cut -d"/" -f6| cut -d. -f1 `; bq load --source_format=CSV --autodetect $PROJECT_ID:drl.$tname $file ; done
+######
+
+#####
+### THOSE ARE TO BE EXECUTED IN BIGQUERY CLOUD CONSOLE
+#### YOU NEED TO CHANGE CITY AND PILOT NAME WHEN REQUESTED
+#######
+
+1
+select name from drl.events where city="Miami"
+
+2
+select 
+p.name as name,
+ep.id as event_pilot_id 
+from 
+`drl.event_pilots` as ep join
+`drl.pilots` as p on p.id = ep.pilot_id 
+
+3
+select 
+p.name as pilot_name,
+e.name as event_name 
+from 
+`drl.event_pilots` as ep join
+`drl.pilots` as p on p.id = ep.pilot_id join
+`drl.events` as e on e.id = ep.event_id
+where e.name = "Project Manhattan"
+
+4
+SELECT time
+ (timestamp_seconds
+   (CAST
+     (AVG
+       (UNIX_SECONDS
+         (PARSE_TIMESTAMP('%H:%M.%S', minimum_time))
+       )
+   AS INT64)
+   )
+ ) as avg
+ from drl.round_standings
+ where minimum_time != "TBD" 
+ and rank=1
+
+
+ 5
+select 
+gpt.id as time_trial_group_pilot_times_id,
+gp.id as time_trial_group_pilot_id,
+g.id as time_trial_group_id,
+g.round_id as round_id,
+if( gpt.time_adjusted is not null, gpt.time_adjusted, if(g.racestack_scoring = 0, gpt.time, gpt.racestack_time)) as time
+from 
+drl.time_trial_group_pilot_times gpt join
+drl.time_trial_group_pilots gp on gp.id = gpt.time_trial_group_pilot_id join
+drl.time_trial_groups g on g.id = gp.time_trial_group_id
+-----
+create table drl.time_trial_cleaned as(
+select 
+gpt.id as time_trial_group_pilot_times_id,
+gp.id as time_trial_group_pilot_id,
+g.id as time_trial_group_id,
+g.round_id as round_id,
+if( gpt.time_adjusted is not null, gpt.time_adjusted, if(g.racestack_scoring = 0, gpt.time, gpt.racestack_time)) as time
+from 
+drl.time_trial_group_pilot_times gpt join
+drl.time_trial_group_pilots gp on gp.id = gpt.time_trial_group_pilot_id join
+drl.time_trial_groups g on g.id = gp.time_trial_group_id
+)
+
+
+7
+select min(ttc.time) as fastest_time
+from
+drl.time_trial_cleaned ttc join
+drl.rounds r on r.id = ttc.round_id join
+drl.events e on e.id = r.event_id
+where e.name = "Boston Foundry"
+and r.name = "Time Trials"
+
+8
+select
+p.name as pilot_name, 
+hs.heat_id as heat_id, 
+hs.minimum_time as minimum_time, 
+hs.points as points
+from 
+drl.heat_standings hs join
+drl.event_pilots ep on hs.event_pilot_id = ep.id join
+drl.pilots p on p.id = ep.pilot_id
+where p.name = "HEADSUP"
+and hs.minimum_time not in ("DNF", "TBD") and length(hs.minimum_time) > 4
+
+
+9
+select
+p.name as pilot_name, 
+hs.heat_id as heat_id, 
+hs.minimum_time as minimum_time, 
+hs.points as points,
+  time 
+    (timestamp_seconds
+      (CAST
+        (AVG
+          (UNIX_SECONDS
+            (PARSE_TIMESTAMP('%H:%M.%S', hs.minimum_time))
+          )
+        OVER (ORDER BY hs.id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+      AS INT64)
+      )
+    )
+  AS running_avg
+from 
+drl.heat_standings hs join
+drl.event_pilots ep on hs.event_pilot_id = ep.id join
+drl.pilots p on p.id = ep.pilot_id
+where p.name = "HEADSUP"
+and hs.minimum_time not in ("DNF", "TBD") and length(hs.minimum_time) > 4
+
+10
+select
+p.name as pilot_name, 
+hs.heat_id as heat_id, 
+hs.minimum_time as minimum_time, 
+hs.points as points,
+  time 
+    (timestamp_seconds
+      (CAST
+        (AVG
+          (UNIX_SECONDS
+            (PARSE_TIMESTAMP('%H:%M.%S', hs.minimum_time))
+          )
+        OVER (ORDER BY hs.id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+      AS INT64)
+      )
+    )
+  AS running_avg,
+  TIME_DIFF(PARSE_TIME('%H:%M.%S', minimum_time), time 
+    (timestamp_seconds
+      (CAST
+        (AVG
+          (UNIX_SECONDS
+            (PARSE_TIMESTAMP('%H:%M.%S', hs.minimum_time))
+          )
+        OVER (ORDER BY hs.id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+      AS INT64)
+      )
+    ), SECOND) as time_diff_from_avg
+from 
+drl.heat_standings hs join
+drl.event_pilots ep on hs.event_pilot_id = ep.id join
+drl.pilots p on p.id = ep.pilot_id
+where p.name = "HEADSUP"
+and hs.minimum_time not in ("DNF", "TBD") and length(hs.minimum_time) > 4
+
+
+11
+select
+p.name as pilot_name, 
+cast (hs.points as integer) as points,
+hs.minimum_time as minimum_time,
+hs.heat_id as heat_id
+from 
+drl.heat_standings hs join
+drl.event_pilots ep on hs.event_pilot_id = ep.id join
+drl.pilots p on p.id = ep.pilot_id
+where p.name = "HEADSUP"
+and hs.minimum_time not in ("DNF", "TBD") and length(hs.minimum_time) > 4
+and hs.points != 0
+order by heat_id asc
+
