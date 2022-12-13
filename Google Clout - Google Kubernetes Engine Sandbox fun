@@ -1,0 +1,14 @@
+gcloud container clusters get-credentials production --zone=us-west1-a
+
+nano sample.yaml
+
+
+kubectl create -f sample.yaml
+
+gcloud container node-pools create secure-pool --cluster=production --zone=us-west1-a --machine-type=n1-standard-2 --image-type=cos_containerd --sandbox type=gvisor
+
+
+kubectl apply -f sample.yaml
+
+
+kubectl apply -f sample.yaml
