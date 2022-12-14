@@ -1,16 +1,14 @@
 TASK 2:-
 
-search artifact registry click on that copy the path 
 
 cd web
 skaffold build --interactive=false \
---default-repo us-west1-docker.pkg.dev/qwiklabs-gcp-04-59b87a64cbec/cicd-challenge \
+--default-repo us-west1-docker.pkg.dev/qwiklabs-gcp-04-de23d7bea505/cicd-challenge \
 --file-output artifacts.json
 cd ..
 
 
 TASK 3:-
-run only 1 command
 
 gcloud config set deploy/region $REGION
 cp clouddeploy-config/delivery-pipeline.yaml.template clouddeploy-config/delivery-pipeline.yaml
@@ -22,6 +20,8 @@ gcloud beta deploy apply --file=clouddeploy-config/delivery-pipeline.yaml
 gcloud beta deploy delivery-pipelines describe web-app
 
 gcloud container clusters list --format="csv(name,status)"
+
+let it be come in running state ok guys..... it take upto 2 to 4 min to come in running state till then you can keep run previous command ok.... this one
 
 
 CONTEXTS=("cd-staging" "cd-production" )
@@ -52,14 +52,13 @@ done
 
 Task 4:-
 
-only this command
-
 gcloud beta deploy releases create web-app-001 \
 --delivery-pipeline web-app \
 --build-artifacts web/artifacts.json \
 --source web/
 
-search for cloud deploy
+now wait for 5 min because it run in backend so wait ok guys.....
+
 
 Task 6:-
 
@@ -77,7 +76,7 @@ cat web/skaffold.yaml
 
 cd web
 skaffold build --interactive=false \
---default-repo us-west1-docker.pkg.dev/qwiklabs-gcp-04-59b87a64cbec/cicd-challenge \
+--default-repo us-west1-docker.pkg.dev/qwiklabs-gcp-04-de23d7bea505/cicd-challenge \
 --file-output artifacts.json
 cd ..
 
