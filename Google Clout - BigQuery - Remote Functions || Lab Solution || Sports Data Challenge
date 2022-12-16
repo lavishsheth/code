@@ -1,0 +1,36 @@
+TASK:-3
+
+name- myconnection
+
+then open cloud run and then open trigger
+
+CREATE FUNCTION my_dataset. remote_function(x FLOAT64, y FLOAT64)
+RETURNS FLOAT64
+REMOTE WITH CONNECTION us.myconnection
+OPTIONS(endpoint="https://us-east1-qwiklabs-gcp-03-cf05c1dc3b87.cloudfunctions.net/remote_add");
+
+
+
+
+Task 5:-
+
+then in cloud run trigger section edit it
+
+import json
+
+_MAX_LOSSLESS=9007199254740992
+
+def batch_add(request):
+  try:
+    return_value = []
+    request_json = request.get_json()
+    calls = request_json['calls']
+    for call in calls:
+      return_value.append(sum([int(x) if isinstance(x, str) else x for x in call if x is not None]))
+    replies = [str(x) if x > _MAX_LOSSLESS or x < -_MAX_LOSSLESS else x for x in return_value]
+    return_json = json.dumps( { "replies" :  replies} )
+    return return_json
+  except Exception as inst:
+    return json.dumps( { "errorMessage": 'something unexpected in input' } ), 400
+
+
