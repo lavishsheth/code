@@ -1,0 +1,22 @@
+Monthly Subscription
+
+Perform the following steps carefully:
+
+1. First log out from the qwiklabs account and open an incognito window on your browser. (CTRL/CMD+SHIFT+N).
+or
+Clear the cache of the website
+2. Go to this link ( https://google.qwiklabs.com/course_templates/153?event=Your&utm_source=qwiklabs&utm_medium=lp&utm_campaign=gwg ) and put this unique access code: 1m-GwG-GCCF-453
+in the popup asking for an access code.
+3. To check for the credits you have received, please visit this link (https://www.cloudskillsboost.google/my_account/credits).
+or https://www.cloudskillsboost.google/my_account/payments
+
+Access code: 1m-GwG-GCCF-453
+
+Then,
+open & perform lab (https://www.cloudskillsboost.google/focuses/2794)
+
+Script (Run in Cloud shell)
+gcloud services enable dialogflow.googleapis.com
+
+it will complete your lab & you will see a monthly subscription.
+woohoo!! :🥳
