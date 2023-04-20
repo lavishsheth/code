@@ -1,0 +1,31 @@
+T1:-
+
+=PROPER(A2)
+
+=ISEMAIL(D2)
+
+
+T2:-
+
+=SUBSTITUTE(H2,"Oct-5","Oct-10")
+
+=VLOOKUP(A2, A2:D16, 4, False)
+
+
+T4:-
+
+=AVERAGE(C2:C101)
+
+=MEDIAN(C2:C101)
+
+=MAX(c2:c101)-MIN(c2:c101)
+
+=STDEV(C2:C101)
+
+
+T5:-
+
+'Customer Ratings'!A1:C101
+
+
+Use Functions, Formulas, and Charts in Google Sheets: Challenge Lab
