@@ -1,0 +1,16 @@
+Open the incognito window on your browser. (CTRL/CMD+SHIFT+N).
+Go to https://cloudskillsboost.google/catalog?keywords=GSP282&event=Your and put this unique access code: 5p-EDUCR-UA-DEV-23C1G14-62 in the popup asking for an access code. (See in video)
+
+ 
+Note : Please make sure you are sign-out from the Cloud Skill Boost platform before you open the above link and make sure that you are NOT selecting the “Sign In with Google” option to login.
+ 
+Caution:
+Only the above link will lead to the steps mentioned below, searching for this lab in the catalog will not work.
+This code is only for you and can be used only once, and not transferable to others.
+
+ 
+Sign in to your Google Cloud Skills Boost account.
+If you click the profile icon on the top right corner, you can see now that you have 9 credits to get started. (See in video, refresh the web-page to check for the 9 credits, if not received logout and perform the above steps again.)
+Once you have the 9 credits, click on the A Tour of Qwiklabs and Google Cloud and then click on the green Start Lab button.
+Follow the steps given in the lab & complete it with a 100% assessment score. (Spend at least 6 minutes in the lab) Once you finish this lab, click on the End Lab button, you will automatically get the credit pass  to your account.
+To check for the subscription you have received, please visit this link cloudskillsboost.google/my_account/credits.
