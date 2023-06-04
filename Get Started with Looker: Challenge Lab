@@ -1,0 +1,48 @@
+PART 1:       
+         
+         view: users_region {
+            derived_table: {
+              sql: SELECT
+                      id,
+                      state,
+                      country
+                    FROM
+                      `cloud-training-demos.looker_ecomm.users` ;;
+            }
+            
+            dimension: id {
+              type: number
+              primary_key: yes
+              sql: ${TABLE}.id ;;
+            }
+            
+            dimension: state {
+              type: string
+              sql: ${TABLE}.state ;;
+            }
+            
+            dimension: country {
+              type: string
+              sql: ${TABLE}.country ;;
+            }
+            
+            measure: count {
+              type: count
+              drill_fields: [id, state, country]
+            }
+          }
+          
+          
+PART 2 :  
+          join: users_region {
+                             type: left_outer
+                             sql_on: ${events.user_id} = ${users_region.id};;
+                             relationship: many_to_one
+                             }
+          
+
+   
+
+  
+  
+  
