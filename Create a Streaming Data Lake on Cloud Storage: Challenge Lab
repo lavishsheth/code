@@ -1,0 +1,53 @@
+Part 1: 
+
+export BUCKET_NAME=
+export TOPIC_ID=
+export PROJECT_ID=
+
+Part 2: 
+
+gcloud config set compute/region "REGION"
+
+gcloud services disable dataflow.googleapis.com
+
+gcloud services enable dataflow.googleapis.com
+
+PROJECT_ID=$(gcloud config get-value project)
+REGION=us-central1
+AE_REGION=us-central
+
+
+gsutil mb gs://$BUCKET_NAME
+
+gcloud pubsub topics create $TOPIC_ID
+
+gcloud app create --region=$AE_REGION
+
+
+
+Part 3: 
+
+gcloud scheduler jobs create pubsub publisher-job --schedule="* * * * *" \
+    --topic=$TOPIC_ID --message-body=
+    
+    
+
+
+
+Part 4:
+gcloud scheduler jobs run publisher-job
+
+git clone https://github.com/GoogleCloudPlatform/java-docs-samples.git
+cd java-docs-samples/pubsub/streaming-analytics
+
+
+mvn compile exec:java \
+-Dexec.mainClass=com.examples.pubsub.streaming.PubSubToGcs \
+-Dexec.cleanupDaemonThreads=false \
+-Dexec.args=" \
+    --project=$PROJECT_ID \
+    --region=$REGION \
+    --inputTopic=projects/$PROJECT_ID/topics/$TOPIC_ID \
+    --output=gs://$BUCKET_NAME/samples/output \
+    --runner=DataflowRunner \
+    --windowSize=2"
