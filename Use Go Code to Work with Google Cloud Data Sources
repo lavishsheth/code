@@ -1,0 +1,16 @@
+export PROJECT_ID=$(gcloud info --format="value(config.project)")
+
+git clone https://github.com/GoogleCloudPlatform/DIY-Tools.git
+
+gcloud firestore import gs://$PROJECT_ID-firestore/prd-back
+
+cd ~/DIY-Tools/gcp-data-drive/cmd/webserver
+
+go build -mod=readonly -v -o gcp-data-drive
+
+./gcp-data-drive
+
+
+
+export PROJECT_ID=$(gcloud info --format="value(config.project)")
+
