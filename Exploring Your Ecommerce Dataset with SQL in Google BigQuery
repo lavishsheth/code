@@ -1,6 +1,3 @@
-# GSP407
-## Run in cloudshell
-```cmd
 bq query --use_legacy_sql=false \
 'SELECT COUNT(*) as num_duplicate_rows, * FROM
 `data-to-insights.ecommerce.all_sessions_raw`
@@ -94,4 +91,3 @@ WHERE type = "PAGE"
 GROUP BY v2ProductName
 ORDER BY product_views DESC
 LIMIT 5;'
-```
