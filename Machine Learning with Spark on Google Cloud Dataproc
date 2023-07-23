@@ -1,0 +1,13 @@
+gcloud compute ssh "startup-vm" --project $DEVSHELL_PROJECT_ID
+
+git clone https://github.com/GoogleCloudPlatform/data-science-on-gcp/
+cd ~/data-science-on-gcp/06_dataproc
+export PROJECT_ID=$(gcloud info --format='value(config.project)')
+export BUCKET_NAME=$PROJECT_ID-dsongcp
+./create_cluster.sh $BUCKET_NAME us-west1
+
+exit
+
+curl -LJO https://github.com/CodingWithHardik/Level-2-Data-Deep-Dive/raw/master/files/CodingWithHardik-GSP271.txt
+mv CodingWithHardik-GSP271.txt CodingWithHardik-GSP271.ipynb
+gsutil cp CodingWithHardik-GSP271.ipynb gs://dataproc-staging*/notebooks/jupyter
