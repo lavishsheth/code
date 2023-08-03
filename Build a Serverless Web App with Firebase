@@ -1,0 +1,44 @@
+#----IDE TERMINAL-----
+git clone https://github.com/rosera/pet-theory.git
+cd pet-theory/lab02
+npm i && npm audit fix --force
+gcloud config set compute/region us-central1
+gcloud app create --region=us-central
+gcloud firestore databases create --region=us-central
+
+#---FIREBASE STEPS HAVE TO DO THROUGH CONSOLE----
+
+#------------------- TERMINAL : https://shell.cloud.google.com/?show=terminal ------------
+git clone https://github.com/rosera/pet-theory.git
+cd ~
+cd pet-theory/lab02
+npm i && npm audit fix --force
+gcloud config set compute/region us-central1
+gcloud app create --region=us-central
+gcloud firestore databases create --location=nam5
+firebase init
+#-----STEPS IN TERMINAL---------------
+#-->USE EXISTING PROJECT
+#-->SELECT YOUR PROJECT ID & PRESS ENTER
+#-->PRESS ENTER & N & ENTER
+#-->PRESS ENTER & Y & ENTER
+#-->PRESS ENTER & N & ENTER
+#-->PRESS N & ENTER
+#-->PRESS N & ENTER
+#-----------------------------------
+#--CONSOLE STEPS -> AUTHENTICATION -> GET STARTED -> SELECT Google -> SELECT YOUR STUDENT EMAIL -> CLICK SAVE---
+#-----BACK TO TERMINAL-----
+firebase deploy
+rm -rf public/customer.js
+rm -rf public/styles.css
+cp solution/public/customer.js public/.
+cp solution/public/styles.css public/.
+firebase deploy
+
+#--------BROWSER STEPS : OPEN NEW TAB AND PASTE BELOW URL-----
+https://<PROJECT_ID>.web.app
+#----LOGIN WITH STUDENT ACCOUNT----
+#----ENTER ANY RANDOM DETAILS----&--CLICK SAVE PROFILE---
+
+#---YOUR LAB IS COMPLETED---
+
