@@ -1,0 +1,34 @@
+export DATASET_SERVICE_NAME=
+export FRONTEND_STAGING_SERVICE_NAME=
+export FRONTEND_PRODUCTION_SERVICE_NAME=
+
+#----DONT CHANGE REGION------
+REGION=us-central1
+gcloud services enable run.googleapis.com
+gcloud firestore databases create --location=nam5
+git clone https://github.com/rosera/pet-theory.git
+cd pet-theory/lab06/firebase-import-csv/solution
+npm install
+node index.js netflix_titles_original.csv
+cd ~/pet-theory/lab06/firebase-rest-api/solution-01
+npm install
+gcloud builds submit --tag gcr.io/$GOOGLE_CLOUD_PROJECT/rest-api:0.1
+gcloud beta run deploy $DATASET_SERVICE_NAME --image gcr.io/$GOOGLE_CLOUD_PROJECT/rest-api:0.1 --allow-unauthenticated --region=$REGION
+cd ~/pet-theory/lab06/firebase-rest-api/solution-02
+npm install
+gcloud builds submit --tag gcr.io/$GOOGLE_CLOUD_PROJECT/rest-api:0.2
+gcloud beta run deploy $DATASET_SERVICE_NAME --image gcr.io/$GOOGLE_CLOUD_PROJECT/rest-api:0.2 --allow-unauthenticated --region=$REGION
+
+cd ~/pet-theory/lab06/firebase-frontend/public
+#gcloud run services describe $DATASET_SERVICE_NAME --platform managed --region $REGION  --format 'value(status.url)'
+export DATASET_URL=$(gcloud run services describe $DATASET_SERVICE_NAME --platform managed --region $REGION  --format 'value(status.url)')
+
+sed "s#https://XXXX-SERVICE.run.app/2020#$DATASET_URL#g" app.js
+npm install
+cd ~/pet-theory/lab06/firebase-frontend
+gcloud builds submit --tag gcr.io/$GOOGLE_CLOUD_PROJECT/frontend-staging:0.1
+gcloud beta run deploy $FRONTEND_STAGING_SERVICE_NAME --image gcr.io/$GOOGLE_CLOUD_PROJECT/frontend-staging:0.1 --allow-unauthenticated --region=$REGION
+
+gcloud builds submit --tag gcr.io/$GOOGLE_CLOUD_PROJECT/frontend-production:0.1
+gcloud beta run deploy $FRONTEND_PRODUCTION_SERVICE_NAME --image gcr.io/$GOOGLE_CLOUD_PROJECT/frontend-production:0.1 --allow-unauthenticated --region=$REGION
+
