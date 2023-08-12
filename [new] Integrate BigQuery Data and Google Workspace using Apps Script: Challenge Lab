@@ -1,0 +1,11 @@
+
+=COUNTUNIQUE(taxi_trips!company)
+
+
+=COUNTIF(taxi_trips!tips,">0")
+
+
+=COUNTIF(taxi_trips!fare,">0")
+
+
+
