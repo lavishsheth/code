@@ -1,0 +1,34 @@
+export LOCATION=
+export PROCESSOR_ID=
+
+
+export GOOGLE_CLOUD_PROJECT=$(gcloud config get-value core/project)
+
+gcloud iam service-accounts create my-docai-sa \
+  --display-name "my-docai-service-account"
+
+gcloud projects add-iam-policy-binding ${GOOGLE_CLOUD_PROJECT} \
+    --member="serviceAccount:my-docai-sa@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" \
+    --role="roles/documentai.admin"
+gcloud projects add-iam-policy-binding ${GOOGLE_CLOUD_PROJECT} \
+    --member="serviceAccount:my-docai-sa@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" \
+    --role="roles/storage.admin"
+gcloud projects add-iam-policy-binding ${GOOGLE_CLOUD_PROJECT} \
+    --member="serviceAccount:my-docai-sa@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com" \
+    --role="roles/serviceusage.serviceUsageConsumer"
+
+sleep 20
+
+gcloud iam service-accounts keys create ~/key.json \
+  --iam-account  my-docai-sa@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com
+
+export GOOGLE_APPLICATION_CREDENTIALS=$(realpath key.json)
+
+pip3 install --upgrade google-cloud-documentai
+pip3 install --upgrade google-cloud-storage
+
+sleep 20
+
+gcloud storage cp gs://cloud-samples-data/documentai/codelabs/ocr/Winnie_the_Pooh_3_Pages.pdf .
+
+sleep 20
