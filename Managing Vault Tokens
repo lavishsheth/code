@@ -1,0 +1,4 @@
+export PROJECT_ID=$(gcloud config get-value project)
+git clone https://github.com/karankk45/karankk45.git
+gsutil cp karankk45/token_policies.txt gs://$PROJECT_ID
+  
