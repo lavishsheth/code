@@ -1,0 +1,34 @@
+export PROJECT_ID=$(gcloud config get-value project)
+git clone https://github.com/GoogleCloudPlatform/policy-library.git
+cd policy-library/
+cp samples/iam_service_accounts_only.yaml policies/constraints
+touch main.tf
+cat > main.tf <<EOF
+terraform {
+  required_providers {
+    google = {
+      source = "hashicorp/google"
+      version = "~> 3.84"
+    }
+  }
+}
+
+resource "google_project_iam_binding" "sample_iam_binding" {
+  project = "$PROJECT_ID"
+  role    = "roles/viewer"
+
+  members = [
+    "user:$USER_EMAIL"
+  ]
+}
+EOF
+
+terraform init
+terraform plan -out=test.tfplan
+terraform show -json ./test.tfplan > ./tfplan.json
+sudo apt-get install google-cloud-sdk-terraform-tools
+gcloud beta terraform vet tfplan.json --policy-library=.
+echo "    - qwiklabs.net" >>policies/constraints/iam_service_accounts_only.yaml
+terraform plan -out=test.tfplan
+gcloud beta terraform vet tfplan.json --policy-library=.
+terraform apply test.tfplan
