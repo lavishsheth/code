@@ -1,0 +1,102 @@
+#-----CHANGE ZONE & BOTH PROJECT IDS---
+
+ZONE=us-west1-c
+PROJECT_ID_1=qwiklabs-gcp-01-a5723c28a213
+PROJECT_ID_2=qwiklabs-gcp-01-4689d4c9ac8c
+
+REGION=${ZONE::-2}
+export PROJECT_ID=$(gcloud config list --format 'value(core.project)')
+BUCKET_NAME=$PROJECT_ID
+gcloud storage buckets create  gs://$BUCKET_NAME --location=$REGION --no-public-access-prevention --no-uniform-bucket-level-access
+export BUCKET_NAME_1=$BUCKET_NAME
+curl \
+https://hadoop.apache.org/docs/current/\
+hadoop-project-dist/hadoop-common/\
+ClusterSetup.html > setup.html
+cp setup.html setup2.html
+cp setup.html setup3.html
+gcloud storage cp setup.html gs://$BUCKET_NAME_1/
+gsutil acl get gs://$BUCKET_NAME_1/setup.html  > acl.txt
+gsutil acl set private gs://$BUCKET_NAME_1/setup.html
+gsutil acl get gs://$BUCKET_NAME_1/setup.html  > acl2.txt
+gsutil acl ch -u AllUsers:R gs://$BUCKET_NAME_1/setup.html
+gsutil acl get gs://$BUCKET_NAME_1/setup.html  > acl3.txt
+rm setup.html
+gcloud storage cp gs://$BUCKET_NAME_1/setup.html setup.html
+
+EN_KEY=$(python3 -c 'import base64; import os; print(base64.encodebytes(os.urandom(32)))')
+EN_KEY_TRIMMED=${EN_KEY:2:-3}
+echo $EN_KEY_TRIMMED
+
+rm -rf .boto
+cat > .boto <<EOF
+
+[Credentials]
+
+[Boto]
+
+https_validate_certificates = True
+
+[GoogleCompute]
+
+[GSUtil]
+
+content_language = en
+
+encryption_key=$EN_KEY_TRIMMED
+
+#decryption_key1=
+#decryption_key2=
+#decryption_key3=
+
+default_api_version = 2
+
+[OAuth2]
+EOF
+gsutil cp setup2.html gs://$BUCKET_NAME_1/
+gsutil cp setup3.html gs://$BUCKET_NAME_1/
+
+cat > life.json << EOF
+{
+  "rule":
+  [
+    {
+      "action": {"type": "Delete"},
+      "condition": {"age": 31}
+    }
+  ]
+}
+EOF
+gsutil lifecycle set life.json gs://$BUCKET_NAME_1
+
+gsutil versioning set on gs://$BUCKET_NAME_1
+
+gcloud config set project $PROJECT_ID_2
+
+export PROJECT_ID=$(gcloud config list --format 'value(core.project)')
+BUCKET_NAME2=$PROJECT_ID
+gcloud storage buckets create  gs://$BUCKET_NAME2 --location=$REGION --no-public-access-prevention --no-uniform-bucket-level-access
+export BUCKET_NAME_2=$BUCKET_NAME2
+
+echo "HELLO WORLD!" > sample.txt
+gsutil cp sample.txt gs://$BUCKET_NAME2
+
+gcloud iam service-accounts create cross-project-storage --display-name="cross-project-storage"
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=serviceAccount:cross-project-storage@$PROJECT_ID.iam.gserviceaccount.com --role=roles/storage.objectViewer
+
+gcloud iam service-accounts keys create credentials.json --iam-account=cross-project-storage@$PROJECT_ID.iam.gserviceaccount.com
+
+#-----------------------
+
+gcloud config set project $PROJECT_ID_1
+
+gcloud compute instances create crossproject --machine-type e2-medium --zone=$ZONE
+
+#-----------------------
+
+gcloud config set project $PROJECT_ID_2
+
+gcloud projects remove-iam-policy-binding $DEVSHELL_PROJECT_ID --member=serviceAccount:cross-project-storage@$PROJECT_ID.iam.gserviceaccount.com --role=roles/storage.objectViewer
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=serviceAccount:cross-project-storage@$PROJECT_ID.iam.gserviceaccount.com --role=roles/storage.objectAdmin
