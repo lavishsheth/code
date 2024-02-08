@@ -1,0 +1,58 @@
+#-----CHANGE REGION-----
+
+REGION=
+
+
+gcloud services enable run.googleapis.com
+export PROJECT_ID=$(gcloud config list --format 'value(core.project)')
+gcloud config set compute/region $REGION
+
+mkdir ~/hello-https && cd $_
+touch index.js && touch package.json
+
+tee -a index.js <<EOF
+/**
+ * Responds to any HTTP request.
+ *
+ * @param {!express:Request} req HTTP request context.
+ * @param {!express:Response} res HTTP response context.
+ */
+exports.helloWorld = (req, res) => {
+  let message = req.query.message || req.body.message || 'Hello World!';
+  res.status(200).send(message);
+};
+EOF
+
+
+tee -a package.json <<EOF
+{
+  "name": "sample-http",
+  "version": "0.0.1"
+}
+EOF
+
+
+
+gcloud functions deploy GCFunction \
+  --gen2 \
+  --runtime nodejs18 \
+  --entry-point helloWorld \
+  --source . \
+  --region $REGION \
+  --trigger-http \
+  --timeout 540s \
+  --allow-unauthenticated \
+  --max-instances 5
+
+
+#-----------------IF YOU SEE ERROR > WAIT FOR 5 MINUTES > AND RERUN ABOVE COMMAND "gcloud functions deploy ..." ------------------
+
+URL=https://$REGION-$PROJECT_ID.cloudfunctions.net/GCFunction
+echo $URL
+
+curl -m 70 -X POST $URL \
+    -H "Authorization: bearer $(gcloud auth print-identity-token)" \
+    -H "Content-Type: application/json" \
+    -d '{"message":"Hello World!"}'
+
+
