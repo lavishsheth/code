@@ -1,0 +1,251 @@
+VM_ZONE=$(gcloud compute instances list --filter="name=postgresql-vm" --format "get(zone)" | awk -F/ '{print $NF}')
+REGION=${VM_ZONE::-2}
+gcloud services enable \
+datamigration.googleapis.com \
+servicenetworking.googleapis.com
+
+gcloud beta compute ssh postgresql-vm -- -vvv
+#----------SSH---------
+sudo apt install postgresql-13-pglogical
+#----
+sudo su - postgres -c "gsutil cp gs://cloud-training/gsp918/pg_hba_append.conf ."
+sudo su - postgres -c "gsutil cp gs://cloud-training/gsp918/postgresql_append.conf ."
+sudo su - postgres -c "cat pg_hba_append.conf >> /etc/postgresql/13/main/pg_hba.conf"
+sudo su - postgres -c "cat postgresql_append.conf >> /etc/postgresql/13/main/postgresql.conf"
+sudo systemctl restart postgresql@13-main
+
+#---
+sudo su - postgres
+
+#---
+
+psql
+
+#----PLSQL TERMINAL-----------
+
+
+CREATE EXTENSION pglogical;
+
+#---
+
+\c orders;
+
+#---
+
+CREATE EXTENSION pglogical;
+
+#---
+
+\c gmemegen_db;
+
+#---
+
+CREATE EXTENSION pglogical;
+
+#---
+
+CREATE USER migration_admin PASSWORD 'DMS_1s_cool!';
+ALTER DATABASE orders OWNER TO migration_admin;
+ALTER ROLE migration_admin WITH REPLICATION;
+
+#----
+
+GRANT USAGE ON SCHEMA pglogical TO migration_admin;
+GRANT ALL ON SCHEMA pglogical TO migration_admin;
+GRANT SELECT ON pglogical.tables TO migration_admin;
+GRANT SELECT ON pglogical.depend TO migration_admin;
+GRANT SELECT ON pglogical.local_node TO migration_admin;
+GRANT SELECT ON pglogical.local_sync_status TO migration_admin;
+GRANT SELECT ON pglogical.node TO migration_admin;
+GRANT SELECT ON pglogical.node_interface TO migration_admin;
+GRANT SELECT ON pglogical.queue TO migration_admin;
+GRANT SELECT ON pglogical.replication_set TO migration_admin;
+GRANT SELECT ON pglogical.replication_set_seq TO migration_admin;
+GRANT SELECT ON pglogical.replication_set_table TO migration_admin;
+GRANT SELECT ON pglogical.sequence_state TO migration_admin;
+GRANT SELECT ON pglogical.subscription TO migration_admin;
+
+GRANT USAGE ON SCHEMA public TO migration_admin;
+GRANT ALL ON SCHEMA public TO migration_admin;
+GRANT SELECT ON public.meme TO migration_admin;
+
+#---
+
+\c postgres;
+
+#---
+
+GRANT USAGE ON SCHEMA pglogical TO migration_admin;
+GRANT ALL ON SCHEMA pglogical TO migration_admin;
+GRANT SELECT ON pglogical.tables TO migration_admin;
+GRANT SELECT ON pglogical.depend TO migration_admin;
+GRANT SELECT ON pglogical.local_node TO migration_admin;
+GRANT SELECT ON pglogical.local_sync_status TO migration_admin;
+GRANT SELECT ON pglogical.node TO migration_admin;
+GRANT SELECT ON pglogical.node_interface TO migration_admin;
+GRANT SELECT ON pglogical.queue TO migration_admin;
+GRANT SELECT ON pglogical.replication_set TO migration_admin;
+GRANT SELECT ON pglogical.replication_set_seq TO migration_admin;
+GRANT SELECT ON pglogical.replication_set_table TO migration_admin;
+GRANT SELECT ON pglogical.sequence_state TO migration_admin;
+GRANT SELECT ON pglogical.subscription TO migration_admin;
+
+#---
+
+\c orders;
+
+#---
+
+GRANT USAGE ON SCHEMA pglogical TO migration_admin;
+GRANT ALL ON SCHEMA pglogical TO migration_admin;
+GRANT SELECT ON pglogical.tables TO migration_admin;
+GRANT SELECT ON pglogical.depend TO migration_admin;
+GRANT SELECT ON pglogical.local_node TO migration_admin;
+GRANT SELECT ON pglogical.local_sync_status TO migration_admin;
+GRANT SELECT ON pglogical.node TO migration_admin;
+GRANT SELECT ON pglogical.node_interface TO migration_admin;
+GRANT SELECT ON pglogical.queue TO migration_admin;
+GRANT SELECT ON pglogical.replication_set TO migration_admin;
+GRANT SELECT ON pglogical.replication_set_seq TO migration_admin;
+GRANT SELECT ON pglogical.replication_set_table TO migration_admin;
+GRANT SELECT ON pglogical.sequence_state TO migration_admin;
+GRANT SELECT ON pglogical.subscription TO migration_admin;
+
+GRANT USAGE ON SCHEMA public TO migration_admin;
+GRANT ALL ON SCHEMA public TO migration_admin;
+GRANT SELECT ON public.distribution_centers TO migration_admin;
+GRANT SELECT ON public.inventory_items TO migration_admin;
+GRANT SELECT ON public.order_items TO migration_admin;
+GRANT SELECT ON public.products TO migration_admin;
+GRANT SELECT ON public.users TO migration_admin;
+\dt
+
+#---
+
+ALTER TABLE public.distribution_centers OWNER TO migration_admin;
+ALTER TABLE public.inventory_items OWNER TO migration_admin;
+ALTER TABLE public.order_items OWNER TO migration_admin;
+ALTER TABLE public.products OWNER TO migration_admin;
+ALTER TABLE public.users OWNER TO migration_admin;
+\dt
+
+\q
+#----
+exit
+#----
+exit
+#------------BACK TO TERMINAL -----------------
+
+VM_ZONE=$(gcloud compute instances list --filter="name=postgresql-vm" --format "get(zone)" | awk -F/ '{print $NF}')
+REGION=${VM_ZONE::-2}
+VM_IP=$(gcloud compute instances describe postgresql-vm --zone=$VM_ZONE \
+  --format='get(networkInterfaces[0].networkIP)')
+
+gcloud database-migration connection-profiles create postgresql postgres-vm --region=$REGION --password=DMS_1s_cool! \
+--username=migration_admin --display-name=postgres-vm --host=$VM_IP --port=5432 
+
+echo "MIGRATION JOBS LINK : https://console.cloud.google.com/dbmigration/migrations/create?authuser=1&project=$DEVSHELL_PROJECT_ID"
+echo "---------------------"
+echo "                         "
+echo "IP FINDING LINK : https://console.cloud.google.com/networking/peering/details/default/servicenetworking-googleapis-com?project=$DEVSHELL_PROJECT_ID"
+echo "---------------------"
+echo "                         "
+#===========================CONSOLE STEPS=======================
+#---CLICK ABOVE LINK
+1. Get started STEPS
+
+For Migration job name, enter vm-to-cloudsql
+For Source database engine, select PostgreSQL.
+For Destination region, select <REGION FROM LAB INSTRUCTIONS>.
+For Destination database engine, select Cloud SQL for PostgreSQL.
+For Migration job type, select Continuous.
+Leave the defaults for the other settings.
+Click Save & Continue.
+
+2. Define a source
+
+For Source connection profile, select postgres-vm.
+Click Save & Continue.
+
+3. Define a destination
+
+For Destination Instance ID, enter postgresql-cloudsql
+For Password, enter supersecret!
+For Choose a Cloud SQL edition, select Enterprise edition.
+For Database version, select Cloud SQL for PostgreSQL 13.
+Choose a Cloud SQL edition > Enterprise
+In Choose region and zone section, select Single zone and select <ZONE FROM LAB INSTRUCTIONS> as primary zone.
+For Instance connectivity, select Private IP and Public IP.
+Select Use an automatically allocated IP range.
+Leave the defaults for the other settings.
+Click Allocate & Connect.
+
+For Machine shapes. check 1 vCPU, 3.75 GB
+For Storage type, select SSD
+For Storage capacity, select 10 GB
+Click Create & Continue.
+
+4. Define connectivity method
+
+For Connectivity method, select VPC peering.
+For VPC, select default.
+Click Configure & Continue.
+
+#----SSH----
+
+gcloud beta compute ssh postgresql-vm -- -vvv
+
+#--------SSH AGAIN---AND REPLACE THIS IP_RANGE FROM VPC SERVICE > servicenetworking-googleapis-com > COPY DESTINATION IP RANGE---------
+IP_RANGE=10.118.32.0/24
+
+sudo tee /etc/postgresql/13/main/pg_hba.conf <<EOF
+local   all             postgres                                peer
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# "local" is for Unix domain socket connections only
+local   all             all                                     peer
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            md5
+# IPv6 local connections:
+host    all             all             ::1/128                 md5
+# Allow replication connections from localhost, by a user with the
+# replication privilege.
+local   replication     all                                     peer
+host    replication     all             127.0.0.1/32            md5
+host    replication     all             ::1/128                 md5
+#GSP918 - allow access to all hosts
+host    all all $IP_RANGE   md5
+EOF
+
+#---BACK TO JOB CONSOLE PAGE TO COMPLETE 5TH STEP---
+
+5. Test and create migration job
+
+In the Database Migration Service tab you open earlier, review the details of the migration job.
+Click Test Job > You should get Green Tick.
+After a successful test, click Create & Start Job.
+
+
+When the job status changes to Running CDC in progress, proceed to the next task.
+#===============================================================
+
+#-------------------TERMINAL AGAIN------
+
+export VM_NAME=postgresql-vm
+export PROJECT_ID=$(gcloud config list --format 'value(core.project)')
+export POSTGRESQL_IP=$(gcloud compute instances describe ${VM_NAME} \
+  --zone=$(gcloud compute instances list --filter="name=postgresql-vm" --format "get(zone)" | awk -F/ '{print $NF}') --format="value(networkInterfaces[0].accessConfigs[0].natIP)")
+echo $POSTGRESQL_IP
+psql -h $POSTGRESQL_IP -p 5432 -d orders -U migration_admin
+
+#--PASSWORD : DMS_1s_cool! ---------
+#----PLSQL TERMINAL---
+
+insert into distribution_centers values(-80.1918,25.7617,'Miami FL',11);
+\q
+
+#------------TERMINAL AGAIN----------
+VM_ZONE=$(gcloud compute instances list --filter="name=postgresql-vm" --format "get(zone)" | awk -F/ '{print $NF}')
+REGION=${VM_ZONE::-2}
+gcloud database-migration migration-jobs promote vm-to-cloudsql --region=$REGION
