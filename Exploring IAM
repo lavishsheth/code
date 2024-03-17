@@ -1,0 +1,29 @@
+#--CHANGE ZONE & USERNAME 2----
+ZONE=us-east4-a #LOOK TASK 6
+USER2=student-04-518a19359368@qwiklabs.net  #FROM LAB INSTRUCTIONS
+
+
+
+echo "Hello World" > sample.txt
+
+export PROJECT_ID=$(gcloud config list --format 'value(core.project)')
+gsutil mb gs://$PROJECT_ID
+#gsutil cp sample.txt gs://$PROJECT_ID
+gsutil cp sample.txt gs://${PROJECT_ID}/sample.txt
+gcloud projects remove-iam-policy-binding $DEVSHELL_PROJECT_ID --member=user:$USER2 --role=roles/viewer
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=user:$USER2 --role=roles/storage.objectViewer
+
+
+gcloud iam service-accounts create read-bucket-objects --display-name read-bucket-objects
+
+SA=$(gcloud iam service-accounts list --format="value(email)" --filter "displayName=read-bucket-objects")
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member serviceAccount:$SA --role=roles/storage.objectViewer
+
+
+gcloud iam service-accounts add-iam-policy-binding  read-bucket-objects@$PROJECT_ID.iam.gserviceaccount.com --member='domain:altostrat.com' --role=roles/iam.serviceAccountUser
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member='domain:altostrat.com' --role=roles/compute.instanceAdmin.v1
+
+
+gcloud compute instances create demoiam --project=$PROJECT_ID --zone=$ZONE --machine-type=e2-micro --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default --metadata=enable-oslogin=true --maintenance-policy=MIGRATE --provisioning-model=STANDARD --service-account=read-bucket-objects@$PROJECT_ID.iam.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --create-disk=auto-delete=yes,boot=yes,device-name=demoiam,image=projects/debian-cloud/global/images/debian-11-bullseye-v20231010,mode=rw,size=10,type=projects/$PROJECT_ID/zones/$ZONE/diskTypes/pd-balanced --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --labels=goog-ec-src=vm_add-gcloud --reservation-affinity=any
