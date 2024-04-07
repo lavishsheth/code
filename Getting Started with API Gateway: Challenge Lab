@@ -1,3 +1,9 @@
+gcloud auth list
+
+gcloud services enable apigateway.googleapis.com
+
+sleep 10
+
 mkdir btecky
 cd btecky
 
