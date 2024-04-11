@@ -1,0 +1,18 @@
+#------------CHANGE REGION---------
+
+REGION=us-east4
+
+gcloud workbench instances create vertex-ai-challenge --vm-image-project=cloud-notebooks-managed --vm-image-name=workbench-instances-v20240214-debian-11-py310 --machine-type=e2-standard-4 --location=$REGION-b
+
+echo "WORKBENCH LINK : https://console.cloud.google.com/vertex-ai/workbench/instances?project=$DEVSHELL_PROJECT_ID "
+
+#---OPEN JUPYTER > TERMINAL IN OTHRER TAB > RUN BELOW COMMAND
+
+git clone https://github.com/GoogleCloudPlatform/training-data-analyst
+cd training-data-analyst/quests/vertex-ai/vertex-challenge-lab
+pip install -U -r requirements.txt --user
+
+#----OPEN training-data-analyst/quests/vertex-ai/vertex-challenge-lab > DELETE vertex-challenge-lab.ipynb
+#---UPLOAD (UP ARROW BUTTON) > vertex-challenge-lab (PRESENT IN DRIVE FOLDER) 
+#---DOUBLE CLICK THE FILE > CHANGE PROJECT ID AND REGION IN BEGINNING CELLS 
+#----RUN ALL CELLS & WAIT FOR EXECUATION
