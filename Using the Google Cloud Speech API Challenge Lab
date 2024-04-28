@@ -1,0 +1,63 @@
+#---CREATE API KEY FROM CONSOLE AS WELL, AS TASK 1 DOES NOT TRACK THROUH SHELL--
+#---API & SERVICES > CREDENTIALS > CREATE CREDENTIALS > API KEY
+export PROJECT_ID=$(gcloud config list --format 'value(core.project)')
+echo "---------------"
+echo "API KEY LINK : https://console.cloud.google.com/apis/credentials?authuser=1&project=$PROJECT_ID"
+echo "---------------"
+gcloud alpha services api-keys create --display-name="API key 1" 
+gcloud beta compute ssh  lab-vm -- -vvv 
+
+
+#------------SSH------------------------
+gcloud services enable apikeys.googleapis.com
+gcloud alpha services api-keys create --display-name="testname" 
+KEY_NAME=$(gcloud alpha services api-keys list --format="value(name)" --filter "displayName=testname")
+API_KEY=$(gcloud alpha services api-keys get-key-string $KEY_NAME --format="value(keyString)")
+echo $API_KEY
+
+#---CHANGE BELOW 4 VARIABLES------
+
+task_2_request_file="request.json"
+
+task_2_response_file="speech_response.json"
+
+task_3_request_file="request_speech_sp.json"
+
+task_3_response_file="speech_response_sp.json"
+
+
+
+# Generate speech_request_en.json file
+cat > "$task_2_request_file" <<EOF
+{
+  "config": {
+    "encoding": "LINEAR16",
+    "languageCode": "en-US",
+    "audioChannelCount": 2
+  },
+  "audio": {
+    "uri": "gs://spls/arc131/question_en.wav"
+  }
+}
+EOF
+
+# Make API call for English transcription
+curl -s -X POST -H "Content-Type: application/json" --data-binary @"$task_2_request_file" \
+"https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" > "$task_2_response_file"
+
+# Generate request_sp.json file
+cat > "$task_3_request_file" <<EOF
+{
+  "config": {
+    "encoding": "FLAC",
+    "languageCode": "es-ES"
+  },
+  "audio": {
+    "uri": "gs://spls/arc131/multi_es.flac"
+  }
+}
+EOF
+
+# Make API call for Spanish transcription
+curl -s -X POST -H "Content-Type: application/json" --data-binary @"$task_3_request_file" \
+"https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" > "$task_3_response_file"
