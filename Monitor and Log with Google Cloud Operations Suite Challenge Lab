@@ -1,0 +1,80 @@
+#-------CHANGE METRIC_NAME FROM LAB INSTRUCTIONS------
+METRIC_NAME=
+
+ZONE=$(gcloud compute instances list --filter="name=video-queue-monitor" --format "get(zone)" | awk -F/ '{print $NF}')
+REGION=${ZONE::-2}
+ID=$(gcloud compute instances describe video-queue-monitor --zone $ZONE --format="value(id)")
+
+cat > my-start-up-script.sh <<EOF
+#!/bin/bash
+
+REGION=$REGION
+ZONE=$ZONE
+PROJECT_ID=$DEVSHELL_PROJECT_ID
+
+## Install Golang
+sudo apt update && sudo apt -y
+sudo apt-get install wget -y
+sudo apt-get -y install git
+sudo chmod 777 /usr/local/
+sudo wget https://go.dev/dl/go1.19.6.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.19.6.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+
+# Install ops agent 
+curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+sudo bash add-google-cloud-ops-agent-repo.sh --also-install
+sudo service google-cloud-ops-agent start
+
+# Create go working directory and add go path
+mkdir /work
+mkdir /work/go
+mkdir /work/go/cache
+export GOPATH=/work/go
+export GOCACHE=/work/go/cache
+
+# Install Video queue Go source code
+cd /work/go
+mkdir video
+gsutil cp gs://spls/gsp338/video_queue/main.go /work/go/video/main.go
+
+# Get Cloud Monitoring (stackdriver) modules
+go get go.opencensus.io
+go get contrib.go.opencensus.io/exporter/stackdriver
+
+# Configure env vars for the Video Queue processing application
+export MY_PROJECT_ID=$DEVSHELL_PROJECT_ID
+export MY_GCE_INSTANCE_ID=$ID
+export MY_GCE_INSTANCE_ZONE=$ZONE
+
+# Initialize and run the Go application
+cd /work
+go mod init go/video/main
+go mod tidy
+go run /work/go/video/main.go
+EOF
+
+gcloud compute instances remove-metadata video-queue-monitor --keys=startup-script --zone=$ZONE
+gcloud compute instances add-metadata video-queue-monitor --metadata-from-file=startup-script=$(readlink -f my-start-up-script.sh) --zone=$ZONE
+
+gcloud logging metrics create $METRIC_NAME --description="custome metric" --log-filter='textPayload=~"file_format\: ([4,8]K).*"'
+
+gcloud compute instances stop video-queue-monitor --zone=$ZONE
+gcloud compute instances start video-queue-monitor --zone=$ZONE
+echo "                 "
+echo "-----------------"
+echo "DASHBOARD LINK : https://console.cloud.google.com/monitoring/dashboards?project=$DEVSHELL_PROJECT_ID&pageState=(%22dashboards%22:(%22t%22:%22All%22))"
+echo "-----------------"
+echo "                 "
+
+#----CLICK DASHBOARD LINK > MEDIA DASHBOARD > ADD WIDGET > LINE
+#----SELECT METRIC > CUSTOM > VM INSTANCE > CUSTOM METRICS > OpenCensus...... > APPLY
+#---FILTER > INSTANCE ID = <AUTO_POPULATED_NUMBER> > APPLY
+
+
+#--ADD WIDGET > LINE > SELECT METRIC > UNTICK ACTIVE > LOGGING > VM INSTANCE > LOG-BASED-METRIC > {YOUR_METRIC_NAME} > APPLY > APPLY
+
+#--ALERTING FROM LEFT HAND MENU > CREATE POLICY > SELECT METRIC > UNTICK ACTIVE > LOGGING > VM INSTANCE > LOG-BASED-METRIC > <{YOUR_METRIC_NAME} > APPLY >
+#---NEXT > {THRESHOLD VALUE FROM LAB INSTRUCTIONS} > NEXT > TOGGLE OFF NOTIFICATIONS CHANNEL > ALERTING POLICY NAME : ABC > CREATE POLICY
+
+#-----------------LAB COMPLETED---------------------
