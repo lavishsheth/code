@@ -6,19 +6,13 @@ PROJECT='change your project id'
 REGION='change your region'
 
 python3 -m venv gemini-streamlit
-
 source gemini-streamlit/bin/activate
-
 python3 -m pip install -r requirements.txt
-
 streamlit run chef.py --browser.serverAddress=localhost --server.enableCORS=false --server.enableXsrfProtection=false --server.port 8080
 
 vi Dockerfile
 
-chef.py
-
 shift+alt+:-> wq -> enter
-
 
 AR_REPO='chef-repo'
 SERVICE_NAME='chef-streamlit-app'
