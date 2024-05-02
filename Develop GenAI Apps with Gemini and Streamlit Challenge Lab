@@ -2,11 +2,9 @@ wine = st.radio(
           "What wine do you prefer?\n\n", ["Red", "white", "None"], key="wine", horizontal=True
         )
 
+PROJECT=' '
 
-PROJECT='change your project id'
-
-REGION='change your region'
-
+REGION=' '
 
 python3 -m venv gemini-streamlit
 
@@ -20,9 +18,10 @@ vi Dockerfile
 
 chef.py
 
-shift+alt+:-> wq -> enter
-
-
 AR_REPO='chef-repo'
+
 SERVICE_NAME='chef-streamlit-app'
+
 gcloud artifacts repositories create "$AR_REPO" --location "$REGION" --repository-format=Docker
+
+gcloud builds submit --tag "$REGION-docker.pkg.dev/$PROJECT/$AR_REPO/$SERVICE_NAME"
