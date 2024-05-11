@@ -1,0 +1,26 @@
+# First, make sure you have the user prompt ready
+user_prompt = "I'd like to order a Pixel 8 Pro and have it shipped to 1155 Borregas Ave, Sunnyvale, CA 94089."
+
+# Send the user prompt to the chat interface
+response = chat.send_message(user_prompt)
+
+# Assuming `api_response` contains the response from the external API call
+api_response = {
+    "payment_status": "paid",
+    "order_number": 12345,
+    "est_arrival": "2 days",
+}
+
+# Now, construct the function response and send it immediately after the function call
+function_response = Part.from_function_response(
+    name="place_order",
+    response={
+        "content": api_response,
+    }
+)
+
+# Send the function response to the chat interface
+response = chat.send_message(function_response)
+
+# Now you can handle the response from the chat interface, if needed
+print(response.candidates[0].content.parts[0])
