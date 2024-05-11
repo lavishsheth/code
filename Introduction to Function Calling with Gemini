@@ -24,3 +24,42 @@ response = chat.send_message(function_response)
 
 # Now you can handle the response from the chat interface, if needed
 print(response.candidates[0].content.parts[0])
+
+
+
+
+--------------------------------------------
+
+from vertexai.generative_models import ChatSession, Part
+
+# Assuming `chat` is an instance of some class that has a method `send_message`
+# and `Part.from_function_response` is a function that creates a Part object from a function response.
+
+# Create a function call with the appropriate name
+function_call = {
+    "name": "get_product_info",
+    "parameters": {
+        # Add any parameters if needed
+    }
+}
+
+# Send the function call
+response1 = chat.send_message(function_call)
+
+# Assuming `api_response` is some data returned from an API call
+api_response = ...
+
+# Create a function response with the API response data
+function_response = Part.from_function_response(
+    name="get_product_info",
+    response={
+        "content": api_response,
+    }
+)
+
+# Send the function response
+response2 = chat.send_message(function_response)
+
+# Now you can access the content of the responses if needed
+content1 = response1.candidates[0].content.parts[0]
+content2 = response2.candidates[0].content.parts[0]
