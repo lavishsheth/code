@@ -1,9 +1,9 @@
 export Z1=
 export Z2=
-export Z2=
+export Z3=
 export R1="${Z1%-*}"
 export R2="${Z2%-*}"
-export R3="${Z2%-*}"
+export R3="${Z3%-*}"
 
 gcloud auth list
 gcloud compute networks create vpc-demo --subnet-mode custom
@@ -30,7 +30,7 @@ gcloud compute firewall-rules create on-prem-allow-internal \
 gcloud compute firewall-rules create on-prem-allow-ssh-icmp \
     --network on-prem \
     --allow tcp:22,icmp
-gcloud compute instances create on-prem-instance1 --zone $Z2 --subnet on-prem-subnet1
+gcloud compute instances create on-prem-instance1 --zone $Z3 --subnet on-prem-subnet1
 gcloud beta compute vpn-gateways create vpc-demo-vpn-gw1 --network vpc-demo --region $R1
 gcloud beta compute vpn-gateways create on-prem-vpn-gw1 --network on-prem --region $R1
 gcloud beta compute vpn-gateways describe vpc-demo-vpn-gw1 --region $R1
