@@ -1,0 +1,39 @@
+export REGION=
+
+gcloud services enable \
+  dataplex.googleapis.com \
+  datacatalog.googleapis.com
+export PROJECT_ID=$(gcloud config get-value project)
+
+gcloud config set compute/region $REGION
+
+gcloud dataplex lakes create orders-lake \
+   --location=$REGION \
+   --display-name="Orders Lake" \
+   --description="Orders Lake Domain"
+
+gcloud dataplex zones create customer-curated-zone \
+    --location=$REGION \
+    --lake=orders-lake \
+    --display-name="Customer Curated Zone" \
+    --resource-location-type=SINGLE_REGION \
+    --type=CURATED \
+    --discovery-enabled \
+    --discovery-schedule="0 * * * *"
+
+bq mk --location=$REGION --dataset customers 
+
+gcloud dataplex assets create customer-details-dataset \
+--location=$REGION \
+--lake=orders-lake \
+--zone=customer-curated-zone \
+--display-name="Customer Details Dataset" \
+--resource-type=BIGQUERY_DATASET \
+--resource-name=projects/$PROJECT_ID/datasets/customers \
+--discovery-enabled 
+
+echo "TASK 2 : https://console.cloud.google.com/dataplex/templates/create?project=$PROJECT_ID"
+
+echo "TASK 3 : https://console.cloud.google.com/dataplex/discover/entities/dataplex:$PROJECT_ID.$REGION.orders-lake.customer-curated-zone.customer_details/details?project=$PROJECT_ID"
+
+
