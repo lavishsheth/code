@@ -1,0 +1,70 @@
+#------CHANGE ZONE-------
+
+ZONE=us-west1-c
+
+REGION=${ZONE::-2}
+
+PROJECT_ID=$(gcloud config get project)
+gcloud services enable securitycenter.googleapis.com
+gcloud pubsub topics create export-findings-pubsub-topic
+gcloud  pubsub subscriptions create --topic export-findings-pubsub-topic export-findings-pubsub-topic-sub
+
+echo "SCC LINK : https://console.cloud.google.com/security/command-center/config/continuous-exports/pubsub?project=$PROJECT_ID"
+
+#------CLICK SCC LINK IN TERMINAL---
+#---EXPORT NAME : export-findings-pubsub > EXPORT DESCRIPTION : Continuous exports of Findings to Pub/Sub and BigQuery ---
+#---PROJECT : YOUR_PROJECT_ID --  TOPIC > SELECT export-findings-pubsub-topic FROM DROPDOWN ---
+#---FINDINGS QUERY : AUTOMATED POPULATED -- CLICK SAVE -------
+
+
+gcloud compute instances create instance-1 --zone=$ZONE \
+--machine-type e2-micro \
+--scopes=https://www.googleapis.com/auth/cloud-platform
+
+echo "PULL BUTTON LINK : https://console.cloud.google.com/cloudpubsub/subscription/detail/export-findings-pubsub-topic-sub?project=$PROJECT_ID&tab=messages"
+
+#------CLICK PULL BUTTON LINK IN TERMINAL > CLICK Pull BUTTON---
+
+bq --location=$REGION --apilog=/dev/null mk --dataset \
+$PROJECT_ID:continuous_export_dataset
+
+gcloud scc bqexports create scc-bq-cont-export --dataset=projects/$PROJECT_ID/datasets/continuous_export_dataset --project=$PROJECT_ID
+
+for i in {0..2}; do
+gcloud iam service-accounts create sccp-test-sa-$i;
+gcloud iam service-accounts keys create /tmp/sa-key-$i.json \
+--iam-account=sccp-test-sa-$i@$PROJECT_ID.iam.gserviceaccount.com;
+done
+
+bq query --apilog=/dev/null --use_legacy_sql=false  \
+"SELECT finding_id,event_time,finding.category FROM continuous_export_dataset.findings"
+
+echo "----------------------"
+echo "                      "
+
+echo "CLOUD STORAGE LINK : https://console.cloud.google.com/storage/create-bucket?project=$PROJECT_ID"
+
+echo "----------------------"
+echo "                      "
+
+echo "SSC LINK : https://console.cloud.google.com/security/command-center/findingsv2;filter=state%3D%22ACTIVE%22%0AAND%20NOT%20mute%3D%22MUTED%22;timeRange=allTime?project=$PROJECT_ID"
+
+echo "----------------------"
+echo "                      "
+echo "BIGQUERY LINK : https://console.cloud.google.com/bigquery?project=$PROJECT_ID&ws=!1m0"
+
+echo "----------------------"
+echo "                      "
+
+echo "BUCKET NAME : scc-export-bucket-$PROJECT_ID"
+
+echo "----------------------"
+echo "                      "
+
+#----WAIT FOR 10 MINUTES ATLEAST----
+#---YOU CAN DO FURTHER STEPS TILL THE TIME---
+#----OPEN LAST LINK IN TERMINAL > BUCKET NAME : scc-export-bucket-YOUR_PROJECT_ID > CONTINUE
+#---REGION : REGION GIVEN IN INSTRUCTIONS > CLICK CREATE 
+#---FOR POP UP "Public access will be prevented" > CLICK CONFIRM
+
+#---FOLLOW LAB INSTRUCTIONS FOR TASK 2-----------
