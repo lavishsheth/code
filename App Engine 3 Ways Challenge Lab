@@ -1,0 +1,21 @@
+export REGION=
+gcloud services enable appengine.googleapis.com
+sleep 5
+git clone https://github.com/GoogleCloudPlatform/python-docs-samples.git
+cd python-docs-samples/appengine/standard_python3/hello_world
+gcloud app create --region=$REGION
+gcloud app deploy --quiet
+
+INSTANCE_NAME=lab-setup
+ZONE=$(gcloud compute instances describe $INSTANCE_NAME --format='get(zone)')
+REGION=$(echo $ZONE | sed 's/-[^-]*$//')
+gcloud compute ssh lab-setup --zone=$ZONE --project=$DEVSHELL_PROJECT_ID --quiet
+
+git clone https://github.com/GoogleCloudPlatform/python-docs-samples.git
+cd python-docs-samples/appengine/standard_python3/hello_world
+
+exit -> manully
+
+sed -i 's/Hello World!/enter-here/g' main.py
+
+gcloud app deploy --quiet
