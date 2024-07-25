@@ -26,7 +26,7 @@ gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=user:$SECON
 gcloud pubsub topics create $TOPIC_NAME
 
 
-mkdir hi && cd hi
+mkdir btecky && cd btecky
 
 
 cat > index.js <<'EOF_END'
@@ -147,7 +147,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 sleep 120
 
-cd hi
+cd btecky
 
 export PROJECT_ID=$(gcloud config get-value project)
 PROJECT_NUMBER=$(gcloud projects list --filter="project_id:$PROJECT_ID" --format='value(project_number)')
@@ -225,7 +225,7 @@ gcloud alpha monitoring policies create --policy-from-file="app-engine-error-per
 
 sleep 400
 
-cd abhi
+cd btecky
 
 export PROJECT_ID=$(gcloud config get-value project)
 PROJECT_NUMBER=$(gcloud projects list --filter="project_id:$PROJECT_ID" --format='value(project_number)')
@@ -258,10 +258,5 @@ gcloud functions deploy $FUNCTION_NAME \
     --source=. \
     --entry-point=thumbnail \
     --trigger-bucket=$BUCKET_NAME
-
-gsutil cp travel.jpg gs://$BUCKET_NAME
-
-
-wget https://storage.googleapis.com/cloud-training/arc101/travel.jpg
 
 gsutil cp travel.jpg gs://$BUCKET_NAME
