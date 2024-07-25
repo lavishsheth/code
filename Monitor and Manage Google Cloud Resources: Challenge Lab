@@ -4,7 +4,6 @@ export FUNCTION_NAME=
 export REGION=
 export SECOND_USER=
 
-
 gcloud config set compute/region $REGION
 
 
