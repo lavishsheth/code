@@ -1,13 +1,13 @@
-export LANG=
+export LANGUAGE=
 export LOCAL=
-export BQ_ROLE=
-export STORAGE_ROLE=
+export BIGQUERY_ROLE=
+export CLOUD_STORAGE_ROLE=
 
 gcloud iam service-accounts create sample-sa
 
-gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=serviceAccount:sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com --role=$BQ_ROLE
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=serviceAccount:sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com --role=$BIGQUERY_ROLE
 
-gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=serviceAccount:sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com --role=$STORAGE_ROLE
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=serviceAccount:sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com --role=$CLOUD_STORAGE_ROLE
 
 gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID --member=serviceAccount:sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com --role=roles/serviceusage.serviceUsageConsumer
 
@@ -17,7 +17,7 @@ gcloud iam service-accounts keys create sample-sa-key.json --iam-account sample-
 
 export GOOGLE_APPLICATION_CREDENTIALS=${PWD}/sample-sa-key.json
 
-wget https://github.com/lavishsheth/code/blob/main/analyze-images-v2.py
+wget https://raw.githubusercontent.com/guys-in-the-cloud/cloud-skill-boosts/main/Challenge-labs/Integrate%20with%20Machine%20Learning%20APIs%3A%20Challenge%20Lab/analyze-images-v2.py
 
 sed -i "s/'en'/'${LOCAL}'/g" analyze-images-v2.py
 
