@@ -11,6 +11,5 @@ gcloud sql instances create my-demo \
     --database-version=MYSQL_5_7 \
     --region=$REGION \
     --tier=db-f1-micro \
-    --root-password=quicklab
-
+    --root-password=btecky
 gcloud sql databases create bike --instance=my-demo
