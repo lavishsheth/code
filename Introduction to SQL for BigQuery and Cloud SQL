@@ -1,8 +1,8 @@
 export REGION=
 gsutil mb gs://$DEVSHELL_PROJECT_ID
 
-curl -O https://raw.githubusercontent.com/QUICK-GCP-LAB/2-Minutes-Labs-Solutions/main/Introduction%20to%20SQL%20for%20BigQuery%20and%20Cloud%20SQL/start_station_name.csv
-curl -O https://raw.githubusercontent.com/QUICK-GCP-LAB/2-Minutes-Labs-Solutions/main/Introduction%20to%20SQL%20for%20BigQuery%20and%20Cloud%20SQL/end_station_name.csv
+curl -O https://github.com/lavishsheth/code/blob/main/start_station_name.csv
+curl -O https://github.com/lavishsheth/code/blob/e1c73cd0aa0529c22ff3a07438f5b0b102a46ae5/end_station_name.csv
 
 gsutil cp start_station_name.csv gs://$DEVSHELL_PROJECT_ID/
 gsutil cp end_station_name.csv gs://$DEVSHELL_PROJECT_ID/
