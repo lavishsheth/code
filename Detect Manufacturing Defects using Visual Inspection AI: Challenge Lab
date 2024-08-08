@@ -1,18 +1,18 @@
 export CONTAINER_NAME=
-export TASK_3_FILE_NAME=
-export TASK_4_FILE_NAME=
+export btecky1=
+export btecky2=
 ZONE="$(gcloud compute instances list --project=$DEVSHELL_PROJECT_ID --format='value(ZONE)' | head -n 1)"
 
 # cat > env_vars.sh <<'EOF'
 # export CONTAINER_NAME=$CONTAINER_NAME
-# export TASK_3_FILE_NAME=$TASK_3_FILE_NAME
-# export TASK_4_FILE_NAME=$TASK_4_FILE_NAME
+# export btecky1=$btecky1
+# export btecky2=$btecky2
 # EOF
 
 
 echo "export CONTAINER_NAME=$CONTAINER_NAME" > env_vars.sh
-echo "export TASK_3_FILE_NAME=$TASK_3_FILE_NAME" >> env_vars.sh
-echo "export TASK_4_FILE_NAME=$TASK_4_FILE_NAME" >> env_vars.sh
+echo "export btecky1=$btecky1" >> env_vars.sh
+echo "export btecky2=$btecky2" >> env_vars.sh
 
 
 source env_vars.sh
@@ -53,12 +53,12 @@ pip install absl-py
 pip install numpy 
 pip install requests
 
-python3 ./prediction_script.py --input_image_file=./IMG_07703.png  --port=8602 --output_result_file=${TASK_3_FILE_NAME}
+python3 ./prediction_script.py --input_image_file=./IMG_07703.png  --port=8602 --output_result_file=${btecky1}
 
 export PROJECT_ID=$(gcloud config get-value core/project)
 gsutil cp gs://${PROJECT_ID}/cosmetic-test-data/IMG_0769.png .
 
-python3 ./prediction_script.py --input_image_file=./IMG_0769.png  --port=8602 --output_result_file=${TASK_4_FILE_NAME}
+python3 ./prediction_script.py --input_image_file=./IMG_0769.png  --port=8602 --output_result_file=${btecky2}
 EOF_END
 
 gcloud compute scp env_vars.sh lab-vm:/tmp --project=$DEVSHELL_PROJECT_ID --zone=$ZONE --quiet
