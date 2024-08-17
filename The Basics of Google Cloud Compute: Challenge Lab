@@ -1,12 +1,21 @@
-gcloud compute disks create mydisk --size=200GB \
---zone ZONE_NAME
+export ZONE=
+gcloud compute instances create my-instance \
+    --machine-type=e2-medium \
+    --zone=$ZONE \
+    --image-project=debian-cloud \
+    --image-family=debian-11 \
+    --boot-disk-size=10GB \
+    --boot-disk-type=pd-balanced \
+    --create-disk=size=100GB,type=pd-standard,mode=rw,device-name=additional-disk \
+    --tags=http-server
+gcloud compute disks create mydisk \
+    --size=200GB \
+    --zone=$ZONE
+gcloud compute instances attach-disk my-instance \
+    --disk=mydisk \
+    --zone=$ZONE
+gcloud compute ssh my-instance --zone=$ZONE --quiet
 
-gcloud compute instances attach-disk VM_NAME --disk mydisk --zone ZONE_NAME
-
-Now open the VM SSH, and run all the commands below and you are done with the lab
-
-sudo apt-get update
-
-sudo apt-get install -y nginx
-
-ps auwx | grep nginx
+sudo apt update
+sudo apt install nginx -y
+sudo systemctl start nginx
