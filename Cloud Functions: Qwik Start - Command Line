@@ -1,33 +1,59 @@
-REGION=us-east1
-
+export REGION=
 gcloud config set compute/region $REGION
 
-export PROJECT_ID=$(gcloud config list --format 'value(core.project)')
-gsutil mb -p $PROJECT_ID gs://$PROJECT_ID
+mkdir gcf_hello_world && cd $_
 
-mkdir gcf_hello_world
-cd gcf_hello_world
-touch index.js
-tee -a index.js <<EOF
-/**
-* Background Cloud Function to be triggered by Pub/Sub.
-* This function is exported by index.js, and executed when
-* the trigger topic receives a message.
-*
-* @param {object} data The event payload.
-* @param {object} context The event metadata.
-*/
-exports.helloWorld = (data, context) => {
-const pubSubMessage = data;
-const name = pubSubMessage.data
-    ? Buffer.from(pubSubMessage.data, 'base64').toString() : "Hello World";
-console.log(`My Cloud Function: ${name}`);
-};
-EOF
+cat > index.js <<'EOF_END'
+const functions = require('@google-cloud/functions-framework');
 
-gcloud functions deploy helloWorld \
-  --stage-bucket $PROJECT_ID \
-  --trigger-topic hello_world \
-  --runtime nodejs20 \
-  --allow-unauthenticated
-gcloud functions describe helloWorld
+// Register a CloudEvent callback with the Functions Framework that will
+// be executed when the Pub/Sub trigger topic receives a message.
+functions.cloudEvent('helloPubSub', cloudEvent => {
+  // The Pub/Sub message is passed as the CloudEvent's data payload.
+  const base64name = cloudEvent.data.message.data;
+
+  const name = base64name
+    ? Buffer.from(base64name, 'base64').toString()
+    : 'World';
+
+  console.log(`Hello, ${name}!`);
+});
+EOF_END
+
+cat > package.json <<'EOF_END'
+{
+  "name": "gcf_hello_world",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.0.0"
+  }
+}
+EOF_END
+
+npm install
+
+gcloud services disable cloudfunctions.googleapis.com
+
+gcloud services enable cloudfunctions.googleapis.com
+
+sleep 15
+
+gcloud functions deploy nodejs-pubsub-function \
+  --gen2 \
+  --runtime=nodejs20 \
+  --region=$REGION \
+  --source=. \
+  --entry-point=helloPubSub \
+  --trigger-topic cf-demo \
+  --stage-bucket $DEVSHELL_PROJECT_ID-bucket \
+  --service-account cloudfunctionsa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com \
+  --allow-unauthenticated \
+  --quiet
+
+gcloud functions describe nodejs-pubsub-function \
+  --region=$REGION
