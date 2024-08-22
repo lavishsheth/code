@@ -1,0 +1,20 @@
+export REGION=
+
+gcloud services disable dataflow.googleapis.com
+gcloud services enable dataflow.googleapis.com
+
+gsutil -m cp -R gs://spls/gsp290/dataflow-python-examples .
+
+export PROJECT=$(gcloud config get-value project)
+
+gcloud config set project $PROJECT
+
+gsutil mb -c regional -l $REGION  gs://$PROJECT
+
+gsutil cp gs://spls/gsp290/data_files/usa_names.csv gs://$PROJECT/data_files/
+
+gsutil cp gs://spls/gsp290/data_files/head_usa_names.csv gs://$PROJECT/data_files/
+
+bq mk lake
+
+docker run -it -e PROJECT=$PROJECT -v $(pwd)/dataflow-python-examples:/dataflow python:3.7 /bin/bash
