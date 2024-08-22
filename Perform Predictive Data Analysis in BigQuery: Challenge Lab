@@ -8,7 +8,6 @@ export FUNC_1=
 export FUNC_2=
 export MODEL=
 
-
 bq load --source_format=NEWLINE_DELIMITED_JSON --autodetect $DEVSHELL_PROJECT_ID:soccer.$EVENT gs://spls/bq-soccer-analytics/events.json
 bq load --source_format=CSV --autodetect $DEVSHELL_PROJECT_ID:soccer.$TABLE gs://spls/bq-soccer-analytics/tags2name.csv
 bq load --autodetect --source_format=NEWLINE_DELIMITED_JSON $DEVSHELL_PROJECT_ID:soccer.competitions gs://spls/bq-soccer-analytics/competitions.json
@@ -183,3 +182,5 @@ MODEL \`$MODEL\`,
 ORDER BY
 predictedgoalProb
 "
+
+
