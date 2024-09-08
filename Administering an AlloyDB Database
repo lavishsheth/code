@@ -1,22 +1,13 @@
-export ZONE=$(gcloud compute instances list alloydb-client --format 'csv[no-heading](zone)')
-gcloud compute ssh alloydb-client --project=$DEVSHELL_PROJECT_ID --zone=$ZONE --quiet
-
 export ALLOYDB=
-
-go to alloydb cluster
-
-
 echo $ALLOYDB  > alloydbip.txt 
 psql -h $ALLOYDB -U postgres
-Change3Me
 \c postgres
 CREATE EXTENSION IF NOT EXISTS PGAUDIT;
 select extname, extversion from pg_extension where extname = 'pgaudit';
-\q
-exit
 
-export ZONE=$(gcloud compute instances list alloydb-client --format 'csv[no-heading](zone)')
-export REGION="${ZONE%-*}"
+
+create cloud shell:
+export REGION=
 gcloud alloydb instances create lab-instance-rp1 \
   --cluster=lab-cluster \
   --region=$REGION \
@@ -25,8 +16,6 @@ gcloud alloydb instances create lab-instance-rp1 \
   --read-pool-node-count=2
 
 
-
-Open New Cloudshell tab
-export ZONE=$(gcloud compute instances list alloydb-client --format 'csv[no-heading](zone)')
-export REGION="${ZONE%-*}"
+create another cloud shell: 
+export REGION=
 gcloud beta alloydb backups create lab-backup --region=$REGION  --cluster=lab-cluster
