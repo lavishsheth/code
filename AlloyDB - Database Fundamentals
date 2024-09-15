@@ -16,3 +16,45 @@ gcloud beta alloydb instances create lab-instance\
     --project=$DEVSHELL_PROJECT_ID
 
 gcloud compute ssh alloydb-client --project=$DEVSHELL_PROJECT_ID --zone=$ZONE --quiet
+
+
+
+export ALLOYDB=
+https://console.cloud.google.com/alloydb/clusters?
+
+echo $ALLOYDB  > alloydbip.txt
+psql -h $ALLOYDB -U postgres
+
+Change3Me
+
+CREATE TABLE regions (
+    region_id bigint NOT NULL,
+    region_name varchar(25)
+) ;
+ALTER TABLE regions ADD PRIMARY KEY (region_id);
+
+INSERT INTO regions VALUES ( 1, 'Europe' );
+INSERT INTO regions VALUES ( 2, 'Americas' );
+INSERT INTO regions VALUES ( 3, 'Asia' );
+INSERT INTO regions VALUES ( 4, 'Middle East and Africa' );
+
+\q
+
+exit
+
+export ZONE=$(gcloud compute instances list alloydb-client --format 'csv[no-heading](zone)')
+
+export REGION="${ZONE%-*}"
+
+gcloud beta alloydb clusters create gcloud-lab-cluster \
+    --password=Change3Me \
+    --network=peering-network \
+    --region=$REGION \
+    --project=$DEVSHELL_PROJECT_ID
+
+gcloud beta alloydb instances create gcloud-lab-instance\
+    --instance-type=PRIMARY \
+    --cpu-count=2 \
+    --region=$REGION  \
+    --cluster=gcloud-lab-cluster \
+    --project=$DEVSHELL_PROJECT_ID
