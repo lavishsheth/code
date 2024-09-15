@@ -24,3 +24,12 @@ gcloud logging sinks create day2ops-sink \
     --log-filter='resource.type="k8s_container"' \
     --include-children \
     --format='json'
+
+
+
+
+
+
+day2ops-log
+
+day2ops_log
