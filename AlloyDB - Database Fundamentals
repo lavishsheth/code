@@ -1,0 +1,18 @@
+export ZONE=$(gcloud compute instances list alloydb-client --format 'csv[no-heading](zone)')
+
+export REGION="${ZONE%-*}"
+
+gcloud beta alloydb clusters create lab-cluster \
+    --password=Change3Me \
+    --network=peering-network \
+    --region=$REGION \
+    --project=$DEVSHELL_PROJECT_ID
+
+gcloud beta alloydb instances create lab-instance\
+    --instance-type=PRIMARY \
+    --cpu-count=2 \
+    --region=$REGION  \
+    --cluster=lab-cluster \
+    --project=$DEVSHELL_PROJECT_ID
+
+gcloud compute ssh alloydb-client --project=$DEVSHELL_PROJECT_ID --zone=$ZONE --quiet
