@@ -1,0 +1,18 @@
+cat <<EOF > cors-config.json
+[
+  {
+    "origin": ["http://example.com"],
+    "method": ["GET"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]
+EOF
+echo "CORS configuration file created."
+
+
+gcloud storage buckets update <Bucket name> --cors-file=cors-config.json
+echo "CORS configuration applied to the bucket <Bucket name>."
+
+
+gcloud storage buckets describe <Bucket name> --format="json(cors)"
