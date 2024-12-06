@@ -1,0 +1,42 @@
+# Set variables for reusability
+EXISTING_BUCKET="<Bucket name>-bucket"
+NEW_BUCKET="<Bucket name>-new"
+REGION="<Region>"
+
+# Step 1: Create a new bucket in the specified region
+gcloud storage buckets create $NEW_BUCKET --location=$REGION
+echo "New bucket $NEW_BUCKET created in region $REGION."
+
+# Step 2: Synchronize website content between the two buckets
+gsutil rsync -r gs://$EXISTING_BUCKET gs://$NEW_BUCKET
+echo "Content synchronized from $EXISTING_BUCKET to $NEW_BUCKET."
+
+# Step 3: Create a backend bucket for the load balancer
+gcloud compute backend-buckets create backend-bucket \
+  --gcs-bucket-name=$NEW_BUCKET \
+  --enable-cdn
+echo "Backend bucket created for $NEW_BUCKET."
+
+# Step 4: Set up a health check
+gcloud compute health-checks create http health-check \
+  --port=80
+echo "HTTP health check created."
+
+# Step 5: Create a URL map to route traffic to the backend bucket
+gcloud compute url-maps create url-map \
+  --default-backend-bucket=backend-bucket
+echo "URL map created."
+
+# Step 6: Create a target HTTP proxy
+gcloud compute target-http-proxies create http-proxy \
+  --url-map=url-map
+echo "HTTP proxy created."
+
+# Step 7: Create a global forwarding rule to distribute traffic
+gcloud compute forwarding-rules create http-rule \
+  --global \
+  --target-http-proxy=http-proxy \
+  --ports=80
+echo "Global forwarding rule created."
+
+echo "Load balancer setup is complete. Traffic is now distributed to $NEW_BUCKET."
