@@ -1,9 +1,4 @@
-echo ""
-echo ""
-echo "Please export the values."
-# Prompt user to input three regions
-read -p "Enter BUCKET_NAME: " BUCKET_NAME
-
+BUCKET_NAME=""
 bq mk work_day
 
 bq mk --table work_day.employee \
