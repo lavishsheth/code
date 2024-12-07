@@ -1,7 +1,13 @@
 echo "Please set the below values correctly"
+
 read -p "Enter the BUCKET: " BUCKET
 read -p "Enter the REGION: " REGION
 read -p "Enter the BUCKET_NAME: " BUCKET_NAME
+
+echo "You entered:"
+echo "BUCKET: $BUCKET"
+echo "REGION: $REGION"
+echo "BUCKET_NAME: $BUCKET_NAME"
 
 
 gcloud storage buckets create gs://$BUCKET_NAME --location=$REGION
