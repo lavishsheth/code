@@ -1,42 +1,18 @@
-# Set variables for reusability
-EXISTING_BUCKET="<Bucket name>-bucket"
-NEW_BUCKET="<Bucket name>-new"
-REGION="<Region>"
-
-# Step 1: Create a new bucket in the specified region
-gcloud storage buckets create $NEW_BUCKET --location=$REGION
-echo "New bucket $NEW_BUCKET created in region $REGION."
-
-# Step 2: Synchronize website content between the two buckets
-gsutil rsync -r gs://$EXISTING_BUCKET gs://$NEW_BUCKET
-echo "Content synchronized from $EXISTING_BUCKET to $NEW_BUCKET."
-
-# Step 3: Create a backend bucket for the load balancer
-gcloud compute backend-buckets create backend-bucket \
-  --gcs-bucket-name=$NEW_BUCKET \
-  --enable-cdn
-echo "Backend bucket created for $NEW_BUCKET."
-
-# Step 4: Set up a health check
-gcloud compute health-checks create http health-check \
-  --port=80
-echo "HTTP health check created."
-
-# Step 5: Create a URL map to route traffic to the backend bucket
-gcloud compute url-maps create url-map \
-  --default-backend-bucket=backend-bucket
-echo "URL map created."
-
-# Step 6: Create a target HTTP proxy
-gcloud compute target-http-proxies create http-proxy \
-  --url-map=url-map
-echo "HTTP proxy created."
-
-# Step 7: Create a global forwarding rule to distribute traffic
-gcloud compute forwarding-rules create http-rule \
-  --global \
-  --target-http-proxy=http-proxy \
-  --ports=80
-echo "Global forwarding rule created."
-
-echo "Load balancer setup is complete. Traffic is now distributed to $NEW_BUCKET."
+read -p "Enter the BUCKET: " BUCKET
+read -p "Enter the REGION: " REGION
+read -p "Enter the BUCKET_NAME: " BUCKET_NAME
+gcloud storage buckets create gs://$BUCKET_NAME --location=$REGION
+gcloud storage cp --recursive gs://$BUCKET/* gs://$BUCKET_NAME
+gcloud storage buckets update gs://$BUCKET_NAME --no-uniform-bucket-level-access
+gcloud storage buckets add-iam-policy-binding gs://$BUCKET_NAME --member=allUsers --role=roles/storage.admin
+gcloud storage buckets update gs://$BUCKET_NAME --web-main-page-suffix=index.html --web-error-page=error.html
+gcloud compute addresses create example-ip --network-tier=PREMIUM --ip-version=IPV4 --global
+gcloud compute addresses describe example-ip --format="get(address)" --global
+gcloud compute backend-buckets create cp-backend-bucket --gcs-bucket-name=$BUCKET_NAME
+gcloud compute url-maps create cp-load-balancer --default-backend-bucket=cp-backend-bucket
+gcloud compute target-http-proxies create cp-tp --url-map=cp-load-balancer
+gcloud compute forwarding-rules create cp-ff --load-balancing-scheme=EXTERNAL --network-tier=PREMIUM --target-http-proxy=cp-tp --ports=80 --address=example-ip --global
+sleep 30
+IP_ADDRESS=$(gcloud compute addresses describe example-ip --format="get(address)" --global)
+echo "This is IP address: $IP_ADDRESS"
+curl http://$IP_ADDRESS
