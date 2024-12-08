@@ -1,0 +1,12 @@
+cat << EOF > cors-config.json
+[
+  {
+    "origin": ["http://example.com"],
+    "method": ["GET"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]
+EOF
+export BUCKET_NAME=$(gcloud storage buckets list --format="value(name)" --limit=1)
+gcloud storage buckets update gs://$BUCKET_NAME --cors-file=cors-config.json
