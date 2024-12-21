@@ -1,42 +1,8 @@
 #!/bin/bash
-
-# Function to prompt user to check their progress
-function check_progress {
-    while true; do
-        echo
-        echo -n "Have you created sink AuditLogsExport? (Y/N): "
-        read -r user_input
-        if [[ "$user_input" == "Y" || "$user_input" == "y" ]]; then
-            echo
-            echo "Great! Proceeding to the next steps..."
-            echo
-            break
-        elif [[ "$user_input" == "N" || "$user_input" == "n" ]]; then
-            echo
-            echo "Please create sink named AuditLogsExport and then press Y to continue."
-        else
-            echo
-            echo "Invalid input. Please enter Y or N."
-        fi
-    done
-}
-
-#----------------------------------------------------start--------------------------------------------------#
-
-echo "Starting Execution"
-
-# Step 1: Setting the default zone
-echo "Setting the default zone..."
 export ZONE=$(gcloud compute project-info describe \
 --format="value(commonInstanceMetadata.items[google-compute-default-zone])")
-
-# Step 2: Exporting the current IAM policy
-echo "Exporting the current IAM policy to policy.json..."
 gcloud projects get-iam-policy $DEVSHELL_PROJECT_ID \
 --format=json >./policy.json
-
-# Step 3: Updating the IAM policy to enable audit logging
-echo "Updating IAM policy to enable audit logging..."
 jq '.auditConfigs = [
   {
     "service": "allServices",
@@ -47,71 +13,31 @@ jq '.auditConfigs = [
     ]
   }
 ] | .' policy.json > updated_policy.json
-
-# Step 4: Applying the updated IAM policy
-echo "Applying the updated IAM policy..."
 gcloud projects set-iam-policy $DEVSHELL_PROJECT_ID \
 ./updated_policy.json
-
-# Step 5: Creating a BigQuery dataset for audit logs
-echo "Creating a BigQuery dataset named 'auditlogs_dataset'..."
 bq --location=US mk --dataset $DEVSHELL_PROJECT_ID:auditlogs_dataset
-
-# Step 6: Log console instructions
-echo "Visit the Logs Explorer in GCP Console..."
-echo
-
-echo "Go to: https://console.cloud.google.com/logs/query"
-echo
-echo "Copy this filter: logName = (\"projects/$DEVSHELL_PROJECT_ID/logs/cloudaudit.googleapis.com%2Factivity\")"
-echo
-echo "SINK NAME: AuditLogsExport"
-echo
-
-# Call function to check progress before proceeding
 check_progress
-
-# Step 7: Setting up a Cloud Storage bucket
-echo "Creating a Cloud Storage bucket and uploading a sample file..."
 gsutil mb gs://$DEVSHELL_PROJECT_ID
 echo "this is a sample file" > sample.txt
 gsutil cp sample.txt gs://$DEVSHELL_PROJECT_ID
-
-# Step 8: Creating a VPC network and VM instance
-echo "Creating a VPC network and VM instance..."
 gcloud compute networks create mynetwork --subnet-mode=auto
 gcloud compute instances create default-us-vm \
 --machine-type=e2-micro \
 --zone="$ZONE" --network=mynetwork
-
-# Step 9: Deleting the bucket and capturing logs
-echo "Deleting the bucket and capturing logs..."
 gsutil rm -r gs://$DEVSHELL_PROJECT_ID
-
 gcloud logging read \
 "logName=projects/$DEVSHELL_PROJECT_ID/logs/cloudaudit.googleapis.com%2Factivity \
 AND protoPayload.serviceName=storage.googleapis.com \
 AND protoPayload.methodName=storage.buckets.delete"
-
-# Step 10: Creating and testing another bucket
-echo "Creating and testing another bucket..."
+echo -e "${YELLOW}${BOLD}Creating and testing another bucket...${RESET}"
 gsutil mb gs://$DEVSHELL_PROJECT_ID
 gsutil mb gs://$DEVSHELL_PROJECT_ID-test
 echo "this is another sample file" > sample2.txt
 gsutil cp sample.txt gs://$DEVSHELL_PROJECT_ID-test
-
-# Step 11: Deleting the VM instance and logging
-echo "Deleting the VM instance and logging..."
 gcloud compute instances delete --zone="$ZONE" \
 --delete-disks=all default-us-vm --quiet
-
-# Step 12: Deleting the bucket and capturing logs
-echo "Deleting the bucket and capturing logs..."
 gsutil rm -r gs://$DEVSHELL_PROJECT_ID
 gsutil rm -r gs://$DEVSHELL_PROJECT_ID-test
-
-# Step 13: BigQuery query for instance deletion logs
-echo "Querying BigQuery for instance deletion logs..."
 bq query --nouse_legacy_sql --project_id=$DEVSHELL_PROJECT_ID '
 SELECT
   timestamp,
@@ -133,9 +59,6 @@ ORDER BY
   resource.labels.instance_id
 LIMIT
   1000'
-
-# Step 14: BigQuery query for bucket deletion logs
-echo "Querying BigQuery for bucket deletion logs..."
 bq query --nouse_legacy_sql --project_id=$DEVSHELL_PROJECT_ID '
 SELECT
   timestamp,
@@ -156,22 +79,3 @@ ORDER BY
   resource.labels.bucket_name
 LIMIT
   1000'
-
-echo
-
-remove_files() {
-    # Loop through all files in the current directory
-    for file in *; do
-        # Check if the file name starts with "gsp", "arc", or "shell"
-        if [[ "$file" == gsp* || "$file" == arc* || "$file" == shell* ]]; then
-            # Check if it's a regular file (not a directory)
-            if [[ -f "$file" ]]; then
-                # Remove the file and echo the file name
-                rm "$file"
-                echo "File removed: $file"
-            fi
-        fi
-    done
-}
-
-remove_files
