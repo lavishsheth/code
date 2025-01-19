@@ -1,0 +1,145 @@
+export REGION=$(gcloud compute project-info describe --format="value(commonInstanceMetadata.items[google-compute-default-region])")
+
+echo $REGION
+
+git clone https://github.com/GoogleCloudPlatform/training-data-analyst
+cd /home/jupyter/training-data-analyst/quests/dataflow_python/
+
+cd 1_Basic_ETL/lab
+export BASE_DIR=$(pwd)
+
+sudo apt-get update && sudo apt-get install -y python3-venv
+
+python3 -m venv df-env
+
+source df-env/bin/activate
+
+python3 -m pip install -q --upgrade pip setuptools wheel
+python3 -m pip install apache-beam[gcp]
+
+gcloud services enable dataflow.googleapis.com
+
+cd $BASE_DIR/../..
+
+source create_batch_sinks.sh
+
+bash generate_batch_events.sh
+
+head events.json
+
+cd ~/training-data-analyst/quests/dataflow_python/1_Basic_ETL/lab
+
+rm my_pipeline.py
+
+# Add new content for my_pipeline.py
+cat > my_pipeline.py <<EOF
+import argparse
+import time
+import logging
+import json
+import apache_beam as beam
+from apache_beam.options.pipeline_options import GoogleCloudOptions
+from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.options.pipeline_options import StandardOptions
+from apache_beam.runners import DataflowRunner, DirectRunner
+
+def run():
+    parser = argparse.ArgumentParser(description='Load from Json into BigQuery')
+    parser.add_argument('--project', required=True, help='Specify Google Cloud project')
+    parser.add_argument('--region', required=True, help='Specify Google Cloud region')
+    parser.add_argument('--stagingLocation', required=True, help='Specify Cloud Storage bucket for staging')
+    parser.add_argument('--tempLocation', required=True, help='Specify Cloud Storage bucket for temp')
+    parser.add_argument('--runner', required=True, help='Specify Apache Beam Runner')
+
+    opts = parser.parse_args()
+
+    options = PipelineOptions()
+    options.view_as(GoogleCloudOptions).project = opts.project
+    options.view_as(GoogleCloudOptions).region = opts.region
+    options.view_as(GoogleCloudOptions).staging_location = opts.stagingLocation
+    options.view_as(GoogleCloudOptions).temp_location = opts.tempLocation
+    options.view_as(GoogleCloudOptions).job_name = '{0}{1}'.format('my-pipeline-', time.time_ns())
+    options.view_as(StandardOptions).runner = opts.runner
+
+    input = 'gs://{0}/events.json'.format(opts.project)
+    output = '{0}:logs.logs'.format(opts.project)
+
+    table_schema = {
+        "fields": [
+            {"name": "ip", "type": "STRING"},
+            {"name": "user_id", "type": "STRING"},
+            {"name": "lat", "type": "FLOAT"},
+            {"name": "lng", "type": "FLOAT"},
+            {"name": "timestamp", "type": "STRING"},
+            {"name": "http_request", "type": "STRING"},
+            {"name": "http_response", "type": "INTEGER"},
+            {"name": "num_bytes", "type": "INTEGER"},
+            {"name": "user_agent", "type": "STRING"}
+        ]
+    }
+
+    p = beam.Pipeline(options=options)
+
+    (p
+        | 'ReadFromGCS' >> beam.io.ReadFromText(input)
+        | 'ParseJson' >> beam.Map(lambda line: json.loads(line))
+        | 'WriteToBQ' >> beam.io.WriteToBigQuery(
+            output,
+            schema=table_schema,
+            create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+            write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE
+        )
+    )
+
+    logging.getLogger().setLevel(logging.INFO)
+    logging.info("Building pipeline ...")
+
+    p.run()
+
+if __name__ == '__main__':
+    run()
+EOF
+
+cd training-data-analyst/quests/dataflow_python
+
+cd $BASE_DIR
+
+export PROJECT_ID=$(gcloud config get-value project)
+
+python3 my_pipeline.py \
+  --project=${PROJECT_ID} \
+  --region=$REGION \
+  --stagingLocation=gs://$PROJECT_ID/staging/ \
+  --tempLocation=gs://$PROJECT_ID/temp/ \
+  --runner=DirectRunner
+
+cd $BASE_DIR
+export PROJECT_ID=$(gcloud config get-value project)
+
+python3 my_pipeline.py \
+  --project=${PROJECT_ID} \
+  --region=$REGION \
+  --stagingLocation=gs://$PROJECT_ID/staging/ \
+  --tempLocation=gs://$PROJECT_ID/temp/ \
+  --runner=DataflowRunner
+
+cd $BASE_DIR/../..
+bq show --schema --format=prettyjson logs.logs
+
+bq show --schema --format=prettyjson logs.logs | sed '1s/^/{"BigQuery Schema":/' | sed '$s/$/}/' > schema.json
+
+cat schema.json
+
+export PROJECT_ID=$(gcloud config get-value project)
+gcloud storage cp schema.json gs://${PROJECT_ID}/
+
+cat > transform.js <<EOF_CP
+function transform(line) {
+  return line;
+}
+EOF_CP
+
+export PROJECT_ID=$(gcloud config get-value project)
+gcloud storage cp *.js gs://${PROJECT_ID}/
+
+export PROJECT_ID=$(gcloud co
