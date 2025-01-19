@@ -47,38 +47,6 @@ curl -X POST \
 
 echo
 
-function random_congrats() {
-    MESSAGES=(
-        "Congratulations For Completing The Lab! Keep up the great work!"
-        "Well done! Your hard work and effort have paid off!"
-        "Amazing job! You’ve successfully completed the lab!"
-        "Outstanding! Your dedication has brought you success!"
-        "Great work! You’re one step closer to mastering this!"
-        "Fantastic effort! You’ve earned this achievement!"
-        "Congratulations! Your persistence has paid off brilliantly!"
-        "Bravo! You’ve completed the lab with flying colors!"
-        "Excellent job! Your commitment is inspiring!"
-        "You did it! Keep striving for more successes like this!"
-        "Kudos! Your hard work has turned into a great accomplishment!"
-        "You’ve smashed it! Completing this lab shows your dedication!"
-        "Impressive work! You’re making great strides!"
-        "Well done! This is a big step towards mastering the topic!"
-        "You nailed it! Every step you took led you to success!"
-        "Exceptional work! Keep this momentum going!"
-        "Fantastic! You’ve achieved something great today!"
-        "Incredible job! Your determination is truly inspiring!"
-        "Well deserved! Your effort has truly paid off!"
-        "You’ve got this! Every step was a success!"
-    )
-
-    RANDOM_INDEX=$((RANDOM % ${#MESSAGES[@]}))
-    echo "${MESSAGES[$RANDOM_INDEX]}"
-}
-
-random_congrats
-
-echo
-
 cd
 
 remove_files() {
