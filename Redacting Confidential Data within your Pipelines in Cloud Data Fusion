@@ -1,0 +1,95 @@
+echo "Exporting project information..."
+export PROJECT_ID=$(gcloud config get-value project)
+
+echo "Creating a Cloud Storage bucket..."
+export PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} \
+    --format="value(projectNumber)")
+
+export BUCKET=$GOOGLE_CLOUD_PROJECT
+gcloud storage buckets create gs://$BUCKET
+
+echo "Adding IAM policy bindings..."
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+    --role="roles/datafusion.serviceAgent"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:service-$PROJECT_NUMBER@gcp-sa-datafusion.iam.gserviceaccount.com" \
+  --role="roles/dlp.admin"
+
+echo "Creating JSON file for the inspect template..."
+cat > new-inspect-file.json <<EOF
+{
+  "inspectTemplate": {
+    "displayName": "hii",
+    "inspectConfig": {
+      "infoTypes": [
+        {
+          "name": "PHONE_NUMBER"
+        },
+        {
+          "name": "EMAIL_ADDRESS"
+        }
+      ],
+      "minLikelihood": "POSSIBLE",
+      "limits": {}
+    }
+  }
+}
+EOF
+
+echo "Creating an inspect template in Google DLP..."
+curl -X POST \
+  -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+  -H "Content-Type: application/json" \
+  https://dlp.googleapis.com/v2/projects/$PROJECT_ID/locations/global/inspectTemplates \
+  -d @new-inspect-file.json
+
+echo
+
+function random_congrats() {
+    MESSAGES=(
+        "Congratulations For Completing The Lab! Keep up the great work!"
+        "Well done! Your hard work and effort have paid off!"
+        "Amazing job! You’ve successfully completed the lab!"
+        "Outstanding! Your dedication has brought you success!"
+        "Great work! You’re one step closer to mastering this!"
+        "Fantastic effort! You’ve earned this achievement!"
+        "Congratulations! Your persistence has paid off brilliantly!"
+        "Bravo! You’ve completed the lab with flying colors!"
+        "Excellent job! Your commitment is inspiring!"
+        "You did it! Keep striving for more successes like this!"
+        "Kudos! Your hard work has turned into a great accomplishment!"
+        "You’ve smashed it! Completing this lab shows your dedication!"
+        "Impressive work! You’re making great strides!"
+        "Well done! This is a big step towards mastering the topic!"
+        "You nailed it! Every step you took led you to success!"
+        "Exceptional work! Keep this momentum going!"
+        "Fantastic! You’ve achieved something great today!"
+        "Incredible job! Your determination is truly inspiring!"
+        "Well deserved! Your effort has truly paid off!"
+        "You’ve got this! Every step was a success!"
+    )
+
+    RANDOM_INDEX=$((RANDOM % ${#MESSAGES[@]}))
+    echo "${MESSAGES[$RANDOM_INDEX]}"
+}
+
+random_congrats
+
+echo
+
+cd
+
+remove_files() {
+    for file in *; do
+        if [[ "$file" == gsp* || "$file" == arc* || "$file" == shell* ]]; then
+            if [[ -f "$file" ]]; then
+                rm "$file"
+                echo "File removed: $file"
+            fi
+        fi
+    done
+}
+
+remove_files
