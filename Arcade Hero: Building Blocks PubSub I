@@ -1,0 +1,11 @@
+echo "Set the values correctly"
+read -p "Enter the TOPIC_NAME: " TOPIC_NAME
+read -p "Enter the SUBS_NAME: " SUBS_NAME
+
+export TOPIC_NAME SUBS_NAME
+
+gcloud auth list
+
+gcloud pubsub topics create $TOPIC_NAME
+
+gcloud pubsub subscriptions create --topic $TOPIC_NAME $SUBS_NAME
