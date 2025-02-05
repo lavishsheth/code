@@ -1,0 +1,10 @@
+echo "Set the value correctly"
+read -p "Enter the USER: " USER
+
+export USER
+
+gcloud auth list
+
+gcloud projects add-iam-policy-binding "$DEVSHELL_PROJECT_ID" \
+    --member="user:$USER" \
+    --role="roles/storage.objectViewer"
