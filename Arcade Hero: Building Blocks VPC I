@@ -1,0 +1,5 @@
+echo "Please set value"
+read -p "Enter the VPC_NAME: " VPC_NAME
+export VPC_NAME
+gcloud auth list
+gcloud compute networks create $VPC_NAME --project=$DEVSHELL_PROJECT_ID --subnet-mode=custom
