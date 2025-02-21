@@ -1,19 +1,29 @@
--- Check the table schemas and data
-bq show --format=prettyjson project_id:dataset_id.products
-bq show --format=prettyjson project_id:dataset_id.category
+# 1. Get your Project ID
+gcloud config list --format="value(core.project)"
 
--- Run the INNER JOIN query to fetch product_name and price
-SELECT p.product_name, p.price
-FROM `project_id.dataset_id.products` AS p
-INNER JOIN `project_id.dataset_id.category` AS c
-ON p.category_id = c.category_id
-WHERE c.category_id = 1;
+# 2. List available datasets in your project
+bq ls --project_id=<your_project_id>
 
--- Save the query as a view
+# 3. List tables inside your dataset
+bq ls --project_id=<your_project_id> <your_dataset_id>
+
+# 4. Check schema and data for products and category tables
+bq show --format=prettyjson <your_project_id>:<your_dataset_id>.products
+bq show --format=prettyjson <your_project_id>:<your_dataset_id>.category
+
+# 5. Run INNER JOIN query to fetch product_name and price
 bq query --use_legacy_sql=false "
-CREATE VIEW `project_id.dataset_id.Product_View` AS
 SELECT p.product_name, p.price
-FROM `project_id.dataset_id.products` AS p
-INNER JOIN `project_id.dataset_id.category` AS c
+FROM \`<your_project_id>.<your_dataset_id>.products\` AS p
+INNER JOIN \`<your_project_id>.<your_dataset_id>.category\` AS c
+ON p.category_id = c.category_id
+WHERE c.category_id = 1;"
+
+# 6. Create a View from the query
+bq query --use_legacy_sql=false "
+CREATE VIEW \`<your_project_id>.<your_dataset_id>.Product_View\` AS
+SELECT p.product_name, p.price
+FROM \`<your_project_id>.<your_dataset_id>.products\` AS p
+INNER JOIN \`<your_project_id>.<your_dataset_id>.category\` AS c
 ON p.category_id = c.category_id
 WHERE c.category_id = 1;"
