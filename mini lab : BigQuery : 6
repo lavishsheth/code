@@ -1,0 +1,19 @@
+PROJECT_ID=$(gcloud config get-value project)
+REGION=""
+
+gcloud services enable cloudscheduler.googleapis.com bigquery.googleapis.com && \
+
+bq query --use_legacy_sql=false \
+'CREATE OR REPLACE TABLE ecommerce.backup_orders AS 
+SELECT * FROM ecommerce.customer_orders;' && \
+
+gcloud scheduler jobs create pubsub backup-ecommerce-job \
+    --schedule="0 0 1 * *" \
+    --time-zone="UTC" \
+    --topic=projects/$PROJECT_ID/topics/bigquery-scheduled-query \
+    --message-body='{"query":"CREATE OR REPLACE TABLE ecommerce.backup_orders AS SELECT * FROM ecommerce.customer_orders;"}' \
+    --location=$REGION && \
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member=serviceAccount:$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')@cloudscheduler.gserviceaccount.com \
+    --role=roles/bigquery.admin
