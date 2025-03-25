@@ -1,0 +1,7 @@
+PROJECT_ID=$(gcloud config get-value project)
+
+bq load --autodetect --source_format=CSV customer_details.customers customers.csv
+
+bq query --use_legacy_sql=false 'CREATE OR REPLACE TABLE customer_details.male_customers AS SELECT CustomerID, Gender FROM customer_details.customers WHERE Gender = "Male"'
+
+bq extract --destination_format=CSV customer_details.male_customers gs://${PROJECT_ID}-bucket/exported_male_customers.csv 
