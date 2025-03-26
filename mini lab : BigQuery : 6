@@ -1,6 +1,24 @@
+bq ls
+
 PROJECT_ID=$(gcloud config get-value project)
 REGION="us"
-gcloud iam service-accounts add-iam-policy-binding ${PROJECT_ID}@${PROJECT_ID}.iam.gserviceaccount.com \
---role='roles/iam.serviceAccountTokenCreator'
-sleep 20
-bq mk --transfer_config --project_id="${PROJECT_ID}" --target_dataset=ecommerce --display_name="Monthly Customer Orders Backup" --params='{"query":"SELECT * FROM `'${PROJECT_ID}'.ecommerce.customer_orders`", "destination_table_name_template":"backup_orders", "write_disposition":"WRITE_TRUNCATE"}' --data_source=scheduled_query --schedule="1 of month 00:00" --location="${REGION}"
+
+bq mk --transfer_config --project_id="${PROJECT_ID}" --target_dataset=ecommerce --display_name="Monthly Customer Orders Backup" --params='{"query":"SELECT * FROM `'"${PROJECT_ID}"'.ecommerce.customer_orders`", "destination_table_name_template":"backup_orders", "write_disposition":"WRITE_TRUNCATE"}' --data_source=scheduled_query --schedule="1 of month 00:00" --location="${REGION}"
+
+cd
+
+remove_files() {
+    # Loop through all files in the current directory
+    for file in *; do
+        # Check if the file name starts with "gsp", "arc", or "shell"
+        if [[ "$file" == gsp* || "$file" == arc* || "$file" == shell* ]]; then
+            # Check if it's a regular file (not a directory)
+            if [[ -f "$file" ]]; then
+                # Remove the file
+                rm "$file"
+            fi
+        fi
+    done
+}
+
+remove_files
