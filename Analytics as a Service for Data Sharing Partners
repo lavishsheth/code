@@ -1,0 +1,89 @@
+bq mk \
+--use_legacy_sql=false \
+--description "DESCRIPTION" \
+--view 'SELECT * FROM `bigquery-public-data.geo_us_boundaries.zip_codes`
+WHERE state_code="TX"
+LIMIT 4000' \
+--project_id $DEVSHELL_PROJECT_ID \
+demo_dataset.authorized_view_a
+
+bq mk \
+--use_legacy_sql=false \
+--description "DESCRIPTION" \
+--view 'SELECT * FROM `bigquery-public-data.geo_us_boundaries.zip_codes`
+WHERE state_code="CA"
+LIMIT 4000' \
+--project_id $DEVSHELL_PROJECT_ID \
+demo_dataset.authorized_view_b
+
+echo "PROJECT ID=$DEVSHELL_PROJECT_ID"
+
+
+
+
+
+### Store the Project ID (Copy from the last terminal line)
+
+### BigQuery: Authorize Views
+1. Navigate to **BigQuery > demo_dataset**
+2. **Sharing > Authorize Views**
+3. Select **authorized_view_a** > Add Authorization
+4. Select **authorized_view_b** > Add Authorization > Close
+
+### Share authorized views
+#### authorized_view_a
+- Click **Share** > Add Principal
+- Paste **Username A** from the lab
+- Assign Role: **BigQuery Data Viewer**
+- Click **Save**
+
+#### authorized_view_b
+- Click **Share** > Add Principal
+- Paste **Username B** from the lab
+- Assign Role: **BigQuery Data Viewer**
+- Click **Save**
+
+### Close the Incognito Window
+
+## Login to Project A Console
+
+PROJECT_ID=
+
+bq mk --use_legacy_sql=false --view 'SELECT geos.zip_code, geos.city, cust.last_name, cust.first_name
+FROM `'$DEVSHELL_PROJECT_ID'.customer_a_dataset.customer_info` as cust
+JOIN `'$PROJECT_ID'.demo_dataset.authorized_view_a` as geos
+ON geos.zip_code = cust.postal_code;' customer_a_dataset.customer_a_table
+```
+
+### Open Looker Studio in Incognito
+1. Open [Looker Studio](https://lookerstudio.google.com/) > **Blank report**
+2. Country: **India**
+3. Company: **Btecky**
+4. Agree and continue > Yes to all > Continue
+5. **BigQuery > Authorize**
+6. Select **GCP ID > customer_a_dataset > customer_a_table**
+7. Click **ADD > Add to report**
+
+### Close the Incognito Window
+
+
+
+## Login to Project B Console
+
+PROJECT_ID=
+
+bq mk --use_legacy_sql=false --view 'SELECT geos.zip_code, geos.city, cust.last_name, cust.first_name
+FROM `'$DEVSHELL_PROJECT_ID'.customer_b_dataset.customer_info` as cust
+JOIN `'$PROJECT_ID'.demo_dataset.authorized_view_b` as geos
+ON geos.zip_code = cust.postal_code;' customer_b_dataset.customer_b_table
+
+
+
+### Open Looker Studio in Incognito
+1. Open [Looker Studio](https://lookerstudio.google.com/) > **Blank report**
+2. Country: **India**
+3. Company: **Btecky**
+4. Agree and continue > Yes to all > Continue
+5. **BigQuery > Authorize**
+6. Select **GCP ID > customer_b_dataset > customer_b_table**
+7. Click **ADD > Add to report**
