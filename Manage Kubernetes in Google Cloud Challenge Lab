@@ -6,12 +6,12 @@ fliter:
 resource.type="k8s_pod"
 severity=WARNING
 
-export CLUSTER_NAME=
-export ZONE=
-export NAMESPACE=
-export INTERVAL=
-export REPO_NAME=
-export SERVICE_NAME=
+export CLUSTER_NAME=hello-world-xt6t
+export ZONE=us-east1-c
+export NAMESPACE=gmp-xfk4
+export INTERVAL=50s
+export REPO_NAME=sandbox-repo
+export SERVICE_NAME=helloweb-service-op7c
 
 
 
