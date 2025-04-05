@@ -72,5 +72,3 @@ gcloud compute scp prepare_disk.sh lab-vm:/tmp --project=$DEVSHELL_PROJECT_ID --
 echo "Running on VM..."
 gcloud compute ssh lab-vm --project=$DEVSHELL_PROJECT_ID --zone=$ZONE --quiet --command="bash /tmp/prepare_disk.sh"
 
-echo "Lab completed successfully!"
-echo "Subscribe on YouTube: https://www.youtube.com/@Arcade61432"
