@@ -1,0 +1,47 @@
+export ZONE=$(gcloud compute instances list linux-instance --format 'csv[no-heading](zone)')
+gcloud compute ssh linux-instance --project=$DEVSHELL_PROJECT_ID --zone=$ZONE --quiet
+
+#!/bin/bash
+
+function error_handler() {
+    echo "ERROR: $1"
+    exit 1
+}
+
+clear
+
+echo "Enter your API key:"
+read API_KEY
+
+if [ -z "$API_KEY" ]; then
+    error_handler "API key cannot be empty"
+fi
+
+export API_KEY=$API_KEY
+
+echo "TASK 2: Creating request.json..."
+cat > request.json << 'EOL'
+{
+  "config": {
+      "encoding":"FLAC",
+      "languageCode": "en-US"
+  },
+  "audio": {
+      "uri":"gs://cloud-samples-tests/speech/brooklyn.flac"
+  }
+}
+EOL
+
+if [ ! -f "request.json" ]; then
+    error_handler "Failed to create request.json file"
+fi
+
+echo "TASK 3: Calling Speech-to-Text API..."
+curl -s -X POST -H "Content-Type: application/json" --data-binary @request.json \
+"https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" > result.json
+
+if [ ! -f "result.json" ]; then
+    error_handler "Failed to save response to result.json"
+fi
+
+cat result.json
