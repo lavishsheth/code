@@ -1,0 +1,59 @@
+#!/bin/bash
+
+cat > bucket1.json <<EOF
+{  
+   "name": "$DEVSHELL_PROJECT_ID-bucket-1",
+   "location": "us",
+   "storageClass": "multi_regional"
+}
+EOF
+
+curl -s -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+     -H "Content-Type: application/json" \
+     --data-binary @bucket1.json \
+     "https://storage.googleapis.com/storage/v1/b?project=$DEVSHELL_PROJECT_ID"
+
+cat > bucket2.json <<EOF
+{  
+   "name": "$DEVSHELL_PROJECT_ID-bucket-2",
+   "location": "us",
+   "storageClass": "multi_regional"
+}
+EOF
+
+curl -s -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+     -H "Content-Type: application/json" \
+     --data-binary @bucket2.json \
+     "https://storage.googleapis.com/storage/v1/b?project=$DEVSHELL_PROJECT_ID"
+
+curl -s -LO https://github.com/Itsabhishek7py/GoogleCloudSkillsboost/blob/9cf40ec8a380bbe71712daeb0a172d8844a2787f/Use%20APIs%20to%20Work%20with%20Cloud%20Storage%3A%20Challenge%20Lab/world.jpeg
+
+curl -s -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+     -H "Content-Type: image/jpeg" \
+     --data-binary @world.jpeg \
+     "https://storage.googleapis.com/upload/storage/v1/b/$DEVSHELL_PROJECT_ID-bucket-1/o?uploadType=media&name=world.jpeg"
+
+curl -s -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+     -H "Content-Type: application/json" \
+     --data "{\"destination\": \"$DEVSHELL_PROJECT_ID-bucket-2\"}" \
+     "https://storage.googleapis.com/storage/v1/b/$DEVSHELL_PROJECT_ID-bucket-1/o/world.jpeg/copyTo/b/$DEVSHELL_PROJECT_ID-bucket-2/o/world.jpeg"
+
+cat > public_access.json <<EOF
+{
+  "entity": "allUsers",
+  "role": "READER"
+}
+EOF
+
+curl -s -X POST --data-binary @public_access.json \
+     -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+     -H "Content-Type: application/json" \
+     "https://storage.googleapis.com/storage/v1/b/$DEVSHELL_PROJECT_ID-bucket-1/o/world.jpeg/acl"
+
+read -p "" -n 1 -r
+
+curl -s -X DELETE -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+     "https://storage.googleapis.com/storage/v1/b/$DEVSHELL_PROJECT_ID-bucket-1/o/world.jpeg"
+
+curl -s -X DELETE -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+     "https://storage.googleapis.com/storage/v1/b/$DEVSHELL_PROJECT_ID-bucket-1"
