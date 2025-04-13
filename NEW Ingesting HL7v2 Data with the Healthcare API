@@ -1,4 +1,4 @@
-xport PROJECT_ID=`gcloud config get-value project`
+export PROJECT_ID=`gcloud config get-value project`
 
 # Define environment variables for the Healthcare dataset and stores
 export DATASET_ID=dataset1
