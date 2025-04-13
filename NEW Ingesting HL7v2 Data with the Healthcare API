@@ -1,0 +1,59 @@
+xport PROJECT_ID=`gcloud config get-value project`
+
+# Define environment variables for the Healthcare dataset and stores
+export DATASET_ID=dataset1
+export FHIR_STORE_ID=fhirstore1
+export DICOM_STORE_ID=dicomstore1
+export HL7_STORE_ID=hl7v2store1
+
+# Enable required Google Cloud APIs for this project
+gcloud services enable compute.googleapis.com \
+                       container.googleapis.com \
+                       dataflow.googleapis.com \
+                       bigquery.googleapis.com \
+                       pubsub.googleapis.com \
+                       healthcare.googleapis.com
+
+# Create a Healthcare dataset in the specified region
+gcloud healthcare datasets create $DATASET_ID --location=${REGION}
+
+# Wait for 40 seconds to ensure dataset creation is complete before proceeding
+sleep 40
+
+# Get the numeric project number for the current project
+PROJECT_NUMBER=$(gcloud projects describe $DEVSHELL_PROJECT_ID --format="value(projectNumber)")
+
+# Define the Healthcare service account used by GCP for Healthcare API
+SERVICE_ACCOUNT="service-${PROJECT_NUMBER}@gcp-sa-healthcare.iam.gserviceaccount.com"
+
+# Grant BigQuery Admin role to the Healthcare service account
+gcloud projects add-iam-policy-binding $PROJECT_NUMBER \
+  --member="serviceAccount:$SERVICE_ACCOUNT" \
+  --role="roles/bigquery.admin"
+
+# Grant Storage Object Admin role to allow object storage access
+gcloud projects add-iam-policy-binding $PROJECT_NUMBER \
+  --member="serviceAccount:$SERVICE_ACCOUNT" \
+  --role="roles/storage.objectAdmin"
+
+# Grant Healthcare Dataset Admin role to manage Healthcare API datasets
+gcloud projects add-iam-policy-binding $PROJECT_NUMBER \
+  --member="serviceAccount:$SERVICE_ACCOUNT" \
+  --role="roles/healthcare.datasetAdmin"
+
+# Grant Pub/Sub Publisher role to allow publishing HL7v2 messages to Pub/Sub
+gcloud projects add-iam-policy-binding $PROJECT_NUMBER \
+  --member="serviceAccount:$SERVICE_ACCOUNT" \
+  --role="roles/pubsub.publisher"
+
+# Create a Pub/Sub topic to receive HL7v2 notifications
+gcloud pubsub topics create projects/$PROJECT_ID/topics/hl7topic
+
+# Create a Pub/Sub subscription to the HL7v2 topic
+gcloud pubsub subscriptions create hl7_subscription --topic=hl7topic
+
+# Create an HL7v2 store in the dataset and configure it to send messages to the Pub/Sub topic
+gcloud healthcare hl7v2-stores create $HL7_STORE_ID \
+  --dataset=$DATASET_ID \
+  --location=$REGION \
+  --notification-config=pubsub-topic=projects/$PROJECT_ID/topics/hl7topic
