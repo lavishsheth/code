@@ -1,0 +1,10 @@
+#!/bin/bash
+
+REGION="Change Here"
+REPO_NAME="Change Here"
+FORMAT="DOCKER"
+
+gcloud artifacts repositories create "$REPO_NAME" \
+  --repository-format="$FORMAT" \
+  --location="$REGION" \
+  --description="Docker images"
