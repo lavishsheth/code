@@ -1,0 +1,42 @@
+REGION=
+
+mkdir ~/hello-go && cd ~/hello-go
+
+cat > main.go <<EOF_END
+package function
+
+import (
+    "fmt"
+    "net/http"
+)
+
+func HelloGo(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprint(w, "Hello from Cloud Functions (Go 2nd Gen)!")
+}
+EOF_END
+
+cat > go.mod <<EOF_END
+module example.com/hellogo
+
+go 1.21
+EOF_END
+
+gcloud functions deploy cf-go \
+  --gen2 \
+  --runtime=go121 \
+  --region="$REGION" \
+  --trigger-http \
+  --allow-unauthenticated \
+  --entry-point=HelloGo \
+  --source=. \
+  --min-instances=5
+
+echo "n" | gcloud functions deploy cf-pubsub \
+  --gen2 \
+  --region="$REGION" \
+  --runtime=go121 \
+  --trigger-topic=cf-pubsub \
+  --min-instances=5 \
+  --entry-point=helloWorld \
+  --source=. \
+  --allow-unauthenticated
