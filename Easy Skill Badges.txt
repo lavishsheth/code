@@ -1,0 +1,46 @@
+Got it 👍 Here’s your list numbered with proper spacing for clarity:
+
+---
+
+1. Set Up an App Dev Environment on Google Cloud - [https://www.cloudskillsboost.google/course\_templates/637](https://www.cloudskillsboost.google/course_templates/637)
+
+2. Implementing Cloud Load Balancing for Compute Engine - [https://www.cloudskillsboost.google/course\_templates/648](https://www.cloudskillsboost.google/course_templates/648)
+
+3. Build Infrastructure with Terraform on Google Cloud - [https://www.cloudskillsboost.google/course\_templates/636?catalog\_rank=%7B%22rank%22%3A1%2C%22num\_filters%22%3A0%2C%22has\_search%22%3Atrue%7D\&search\_id=44386424](https://www.cloudskillsboost.google/course_templates/636?catalog_rank=%7B%22rank%22%3A1%2C%22num_filters%22%3A0%2C%22has_search%22%3Atrue%7D&search_id=44386424)
+
+4. Use Functions, Formulas, and Charts in Google Sheets - [https://www.cloudskillsboost.google/course\_templates/776](https://www.cloudskillsboost.google/course_templates/776)
+
+5. Monitoring in Google Cloud - [https://www.cloudskillsboost.google/course\_templates/747](https://www.cloudskillsboost.google/course_templates/747)
+
+6. Perform Predictive Data Analysis in BigQuery - [https://www.cloudskillsboost.google/course\_templates/656](https://www.cloudskillsboost.google/course_templates/656)
+
+7. Get Started with Google Workspace Tools - [https://www.cloudskillsboost.google/course\_templates/676](https://www.cloudskillsboost.google/course_templates/676)
+
+8. Build LookML Objects in Looker - [https://www.cloudskillsboost.google/course\_templates/639](https://www.cloudskillsboost.google/course_templates/639)
+
+9. Create ML Models with BigQuery ML - [https://www.cloudskillsboost.google/paths/18/course\_templates/626](https://www.cloudskillsboost.google/paths/18/course_templates/626)
+
+10. Explore Generative AI with the Gemini API in Vertex AI - [https://www.cloudskillsboost.google/course\_templates/959](https://www.cloudskillsboost.google/course_templates/959)
+
+11. Get Started with Dataplex - [https://www.cloudskillsboost.google/course\_templates/726](https://www.cloudskillsboost.google/course_templates/726)
+
+12. Create and Manage AlloyDB Instances - [https://www.cloudskillsboost.google/course\_templates/642](https://www.cloudskillsboost.google/course_templates/642)
+
+13. Create and Manage Cloud Spanner Instances - [https://www.cloudskillsboost.google/course\_templates/643](https://www.cloudskillsboost.google/course_templates/643)
+
+14. Create and Manage Bigtable Instances - [https://www.cloudskillsboost.google/course\_templates/650](https://www.cloudskillsboost.google/course_templates/650)
+
+15. Privileged Access with IAM - [https://www.cloudskillsboost.google/course\_templates/1337](https://www.cloudskillsboost.google/course_templates/1337)
+
+16. Discover and Protect Sensitive Data Across Your Ecosystem - [https://www.cloudskillsboost.google/course\_templates/1177](https://www.cloudskillsboost.google/course_templates/1177)
+
+17. Enhance Gemini Model Capabilities - [https://www.cloudskillsboost.google/course\_templates/1241](https://www.cloudskillsboost.google/course_templates/1241)
+
+18. Create and Manage Cloud SQL for PostgreSQL Instances - [https://www.cloudskillsboost.google/course\_templates/652?catalog\_rank=%7B%22rank%22%3A31%2C%22num\_filters%22%3A1%2C%22has\_search%22%3Afalse%7D](https://www.cloudskillsboost.google/course_templates/652?catalog_rank=%7B%22rank%22%3A31%2C%22num_filters%22%3A1%2C%22has_search%22%3Afalse%7D)
+
+19. Cloud Speech API: 3 Ways - [https://www.cloudskillsboost.google/course\_templates/700](https://www.cloudskillsboost.google/course_templates/700)
+
+20. Deploy Kubernetes Applications on Google Cloud - [https://www.cloudskillsboost.google/course\_templates/663?catalog\_rank=%7B%22rank%22%3A1%2C%22num\_filters%22%3A0%2C%22has\_search%22%3Atrue%7D\&search\_id=44386498](https://www.cloudskillsboost.google/course_templates/663?catalog_rank=%7B%22rank%22%3A1%2C%22num_filters%22%3A0%2C%22has_search%22%3Atrue%7D&search_id=44386498)
+
+21. Create a Secure Data Lake on Cloud Storage - [https://www.cloudskillsboost.google/course\_templates/704](https://www.cloudskillsboost.google/course_templates/704)
+
