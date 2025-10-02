@@ -1,0 +1,1 @@
+gsutil iam ch -d allUsers:objectViewer gs://
