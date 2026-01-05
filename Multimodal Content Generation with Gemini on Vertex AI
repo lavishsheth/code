@@ -1,0 +1,41 @@
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part
+
+# -----------------------------
+# CONFIG
+# -----------------------------
+PROJECT_ID = "your-project-id"   # replace
+LOCATION = "us-central1"
+
+vertexai.init(project=PROJECT_ID, location=LOCATION)
+
+def load_image_from_url(prompt):
+    """
+    Generates content using Gemini 2.0 Flash
+    with image + text input
+    """
+
+    model = GenerativeModel("gemini-2.0-flash")
+
+    image = Part.from_uri(
+        uri="gs://cloud-samples-data/vision/landmark/eiffel_tower.jpg",
+        mime_type="image/jpeg"
+    )
+
+    response = model.generate_content(
+        [image, prompt]
+    )
+
+    return response.text
+
+
+if __name__ == "__main__":
+    prompt = "Describe this image in detail and explain what makes it unique."
+
+    print("Prompt:", prompt)
+    print("\nModel Response:\n")
+
+    try:
+        print(load_image_from_url(prompt))
+    except Exception as e:
+        print("Error:", e)
