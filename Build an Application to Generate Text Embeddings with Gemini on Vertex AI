@@ -1,0 +1,26 @@
+from vertexai.language_models import TextEmbeddingModel
+
+def text_embedding(text):
+    # Load the embedding model
+    model = TextEmbeddingModel.from_pretrained("text-embedding-005")
+
+    # Generate embedding
+    embedding = model.get_embeddings([text])
+
+    # Get vector values
+    vector = embedding[0].values
+
+    # Print vector length
+    print("Embedding length:", len(vector))
+
+    return vector
+
+
+if __name__ == "__main__":
+    sample_text = "Natural language processing enables computers to understand human language."
+    print("Processing text:", sample_text)
+
+    text_embedding(sample_text)
+
+
+
