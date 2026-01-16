@@ -8,10 +8,10 @@ cat <<EOF > lifecycle.json
     {
       "action": {
         "type": "SetStorageClass",
-        "storageClass": "STANDARD"
+        "storageClass": "NEARLINE"
       },
       "condition": {
-        "age": 0,
+        "daysSinceNoncurrentTime": 30,
         "matchesPrefix": ["projects/active/"]
       }
     },
@@ -21,7 +21,7 @@ cat <<EOF > lifecycle.json
         "storageClass": "NEARLINE"
       },
       "condition": {
-        "age": 90,
+        "daysSinceNoncurrentTime": 90,
         "matchesPrefix": ["archive/"]
       }
     },
@@ -31,7 +31,7 @@ cat <<EOF > lifecycle.json
         "storageClass": "COLDLINE"
       },
       "condition": {
-        "age": 180,
+        "daysSinceNoncurrentTime": 180,
         "matchesPrefix": ["archive/"]
       }
     },
@@ -48,8 +48,5 @@ cat <<EOF > lifecycle.json
 }
 EOF
 
-# Apply lifecycle policy to bucket
-gsutil lifecycle set lifecycle.json gs://$PROJECT_ID-bucket
 
-# Verify lifecycle policy
-gsutil lifecycle get gs://$PROJECT_ID-bucket
+gsutil lifecycle set lifecycle.json gs://$PROJECT_ID-bucket
