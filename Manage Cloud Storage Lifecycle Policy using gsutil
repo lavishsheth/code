@@ -1,7 +1,6 @@
-# Get current project ID
+# I Know you will Steal it
 PROJECT_ID=$(gcloud config get-value project)
 
-# Create lifecycle policy
 cat <<EOF > lifecycle.json
 {
   "rule": [
