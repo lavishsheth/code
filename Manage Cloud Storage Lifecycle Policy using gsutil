@@ -1,7 +1,18 @@
-# I Know you will Steal it
-PROJECT_ID=$(gcloud config get-value project)
+#!/bin/bash
 
-cat <<EOF > lifecycle.json
+PROJECT_ID="$(gcloud config get-value project 2>/dev/null)"
+
+if [[ -z "$PROJECT_ID" ]]; then
+  echo "No active GCP project found. Run: gcloud config set project PROJECT_ID"
+  exit 1
+fi
+
+BUCKET_NAME="gs://${PROJECT_ID}-bucket"
+LIFECYCLE_FILE="gcs_lifecycle_rules.json"
+
+echo "Creating lifecycle rules for bucket: $BUCKET_NAME"
+
+cat > "$LIFECYCLE_FILE" <<'JSON'
 {
   "rule": [
     {
@@ -45,7 +56,8 @@ cat <<EOF > lifecycle.json
     }
   ]
 }
-EOF
+JSON
 
+gsutil lifecycle set "$LIFECYCLE_FILE" "$BUCKET_NAME"
 
-gsutil lifecycle set lifecycle.json gs://$PROJECT_ID-bucket
+echo "Lifecycle policy successfully applied."
