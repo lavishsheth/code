@@ -1,0 +1,132 @@
+#!/bin/bash
+
+clear
+
+if [[ -z "$zone" ]]; then
+    read -p "Enter your Zone (example: us-central1-f): " zone
+fi
+
+if [[ -z "$zone" ]]; then
+    exit 1
+fi
+
+region=$(echo "$zone" | awk -F'-' '{print $1"-"$2}')
+
+gcloud config set compute/zone "$zone" >/dev/null
+gcloud config set compute/region "$region" >/dev/null
+
+PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+
+gcloud services enable networkconnectivity.googleapis.com
+
+routing_vpc_network_name="routing-vpc"
+routing_vpc_router_name="routing-vpc-cr"
+routing_vpc_router_asn=64525
+
+on_prem_network_name="on-prem-net-vpc"
+on_prem_router_name="on-prem-router"
+on_prem_router_asn=64526
+
+gcloud compute routers create "$routing_vpc_router_name" \
+    --region="$region" \
+    --network="$routing_vpc_network_name" \
+    --asn="$routing_vpc_router_asn"
+
+gcloud compute routers create "$on_prem_router_name" \
+    --region="$region" \
+    --network="$on_prem_network_name" \
+    --asn="$on_prem_router_asn"
+
+routing_vpn_gateway_name="routing-vpc-vpn-gateway"
+on_prem_gateway_name="on-prem-vpn-gateway"
+
+gcloud compute vpn-gateways create "$routing_vpn_gateway_name" \
+    --region="$region" \
+    --network="$routing_vpc_network_name"
+
+gcloud compute vpn-gateways create "$on_prem_gateway_name" \
+    --region="$region" \
+    --network="$on_prem_network_name"
+
+secret_key=$(openssl rand -base64 24)
+routing_vpc_tunnel_name="routing-vpc-tunnel"
+on_prem_tunnel_name="on-prem-tunnel"
+
+gcloud compute vpn-tunnels create "$routing_vpc_tunnel_name" \
+    --vpn-gateway="$routing_vpn_gateway_name" \
+    --peer-gcp-gateway="$on_prem_gateway_name" \
+    --router="$routing_vpc_router_name" \
+    --region="$region" \
+    --interface=0 \
+    --shared-secret="$secret_key"
+
+gcloud compute vpn-tunnels create "$on_prem_tunnel_name" \
+    --vpn-gateway="$on_prem_gateway_name" \
+    --peer-gcp-gateway="$routing_vpn_gateway_name" \
+    --router="$on_prem_router_name" \
+    --region="$region" \
+    --interface=0 \
+    --shared-secret="$secret_key"
+
+interface_hub_name="if-hub-to-prem"
+hub_router_ip="169.254.1.1"
+prem_router_ip="169.254.1.2"
+
+gcloud compute routers add-interface "$routing_vpc_router_name" \
+    --interface-name="$interface_hub_name" \
+    --ip-address="$hub_router_ip" \
+    --mask-length=30 \
+    --vpn-tunnel="$routing_vpc_tunnel_name" \
+    --region="$region"
+
+gcloud compute routers add-bgp-peer "$routing_vpc_router_name" \
+    --peer-name="bgp-hub-to-prem" \
+    --peer-ip-address="$prem_router_ip" \
+    --interface="$interface_hub_name" \
+    --peer-asn="$on_prem_router_asn" \
+    --region="$region"
+
+gcloud compute routers add-interface "$on_prem_router_name" \
+    --interface-name="if-prem-to-hub" \
+    --ip-address="$prem_router_ip" \
+    --mask-length=30 \
+    --vpn-tunnel="$on_prem_tunnel_name" \
+    --region="$region"
+
+gcloud compute routers add-bgp-peer "$on_prem_router_name" \
+    --peer-name="bgp-prem-to-hub" \
+    --peer-ip-address="$hub_router_ip" \
+    --interface="if-prem-to-hub" \
+    --peer-asn="$routing_vpc_router_asn" \
+    --region="$region"
+
+gcloud compute routers update "$routing_vpc_router_name" \
+    --advertisement-mode custom \
+    --set-advertisement-groups=all_subnets \
+    --set-advertisement-ranges="10.0.1.0/24" \
+    --region="$region"
+
+gcloud compute routers update "$on_prem_router_name" \
+    --advertisement-mode custom \
+    --set-advertisement-groups=all_subnets \
+    --region="$region"
+
+gcloud compute routers update-bgp-peer "$on_prem_router_name" \
+    --peer-name="bgp-prem-to-hub" \
+    --advertised-route-priority="111" \
+    --region="$region"
+
+hub_name="mesh-hub"
+gcloud network-connectivity hubs create "$hub_name"
+
+vpc_spoke_name="workload-vpc-spoke"
+gcloud network-connectivity spokes linked-vpc-network create "$vpc_spoke_name" \
+    --hub="$hub_name" \
+    --vpc-network="workload-vpc" \
+    --global
+
+vpn_spoke_name="hybrid-spoke"
+gcloud network-connectivity spokes linked-vpn-tunnels create "$vpn_spoke_name" \
+    --region="$region" \
+    --hub="$hub_name" \
+    --vpn-tunnels="$routing_vpc_tunnel_name"
