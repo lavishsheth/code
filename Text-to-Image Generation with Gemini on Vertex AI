@@ -1,25 +1,27 @@
+
 import vertexai
 from vertexai.generative_models import GenerativeModel
 
-# Config
 PROJECT_ID = "your-project-id"
-LOCATION = "change with yours"
+LOCATION = "change your code"
 
-# Initialize Vertex AI
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 
-# Get response from Gemini model
-def get_response(prompt):
-    model = GenerativeModel("gemini-2.0-flash")
-    return model.generate_content(prompt).text
+def get_chat_response(prompt):
+    model = GenerativeModel("gemini-2.5-flash")
+    response = model.generate_content(prompt)
+    return response.text
 
-# Run
 if __name__ == "__main__":
-    questions = [
-        "What are the colors of the rainbow?",
-        "What is a prism?"
+    prompts = [
+        "Hello! What are all the colors in a rainbow?",
+        "What is Prism?"
     ]
 
-    for q in questions:
-        print("User:", q)
-        print("Model:", get_response(q), "\n")
+    for question in prompts:
+        print(f"User: {question}")
+        try:
+            answer = get_chat_response(question)
+            print(f"Model: {answer}\n")
+        except Exception as e:
+            print(f"Error: {e}")
