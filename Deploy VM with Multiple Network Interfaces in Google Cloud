@@ -1,0 +1,1 @@
+gcloud compute instances create multi-nic-vm --zone=europe-west4-c --machine-type=e2-medium --image-family=debian-12 --image-project=debian-cloud --boot-disk-size=20GB --boot-disk-type=pd-balanced --network-interface=network=my-vpc1,subnet=subnet-a,no-address --network-interface=network=my-vpc2,subnet=subnet-b,no-address --tags=multi-nic,internal-vm --labels=env=dev,role=multinic
