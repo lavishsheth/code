@@ -21,4 +21,3 @@ if __name__ == "__main__":
     interview(
         "Give me ten interview questions for the role of program manager."
     )
-EOF
