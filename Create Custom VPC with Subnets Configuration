@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# ---------------------------------------------------
+# Custom VPC Setup Script
+# ---------------------------------------------------
+# This script:
+# 1. Deletes all firewall rules in default network
+# 2. Deletes the default VPC network
+# 3. Creates a new custom VPC
+# 4. Creates subnets in US and Asia regions
+# ---------------------------------------------------
+
+set -e
+
+echo "Removing firewall rules from default network..."
+
+# Delete all firewall rules in default network
+FIREWALL_RULES=$(gcloud compute firewall-rules list --filter="network=default" --format="value(name)")
+
+for RULE in $FIREWALL_RULES
+do
+  gcloud compute firewall-rules delete "$RULE" --quiet
+done
+
+echo "Deleting default VPC network..."
+gcloud compute networks delete default --quiet
+
+echo "Creating custom VPC network..."
+gcloud compute networks create custom-vpc --subnet-mode=custom
+
+echo "Creating subnet in us-central1..."
+gcloud compute networks subnets create custom-subnet-us --network=custom-vpc --region=us-central1 --range=10.0.1.0/24
+
+echo "Creating subnet in asia-southeast1..."
+gcloud compute networks subnets create custom-subnet-asia --network=custom-vpc --region=asia-southeast1 --range=10.0.2.0/24
+
+echo "Custom VPC setup completed successfully."
