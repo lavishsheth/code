@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# ------------------------------------------------------------
+# Google Cloud Storage Lifecycle Automation Script
+# ------------------------------------------------------------
+# This script:
+# 1. Fetches the active GCP Project ID
+# 2. Creates a lifecycle configuration file
+# 3. Applies lifecycle rules to the project bucket
+#
+# Lifecycle Rules Implemented:
+# - Move active project files to NEARLINE after 30 days
+# - Move archived files to NEARLINE after 90 days
+# - Move archived files to COLDLINE after 180 days
+# - Delete temporary processing logs after 7 days
+# ------------------------------------------------------------
+
+# Exit immediately if a command fails
+set -e
+
+echo "Fetching active Google Cloud project..."
+
+PROJECT_ID=$(gcloud config get-value project)
+
+if [ -z "$PROJECT_ID" ]; then
+  echo "Error: No active project found."
+  exit 1
+fi
+
+echo "Active Project: $PROJECT_ID"
+echo "Creating lifecycle configuration file..."
+
+cat > lifecycle.json << 'EOF'
+{
+  "rule": [
+    {
+      "action": {
+        "type": "SetStorageClass",
+        "storageClass": "NEARLINE"
+      },
+      "condition": {
+        "daysSinceNoncurrentTime": 30,
+        "matchesPrefix": ["projects/active/"]
+      }
+    },
+    {
+      "action": {
+        "type": "SetStorageClass",
+        "storageClass": "NEARLINE"
+      },
+      "condition": {
+        "daysSinceNoncurrentTime": 90,
+        "matchesPrefix": ["archive/"]
+      }
+    },
+    {
+      "action": {
+        "type": "SetStorageClass",
+        "storageClass": "COLDLINE"
+      },
+      "condition": {
+        "daysSinceNoncurrentTime": 180,
+        "matchesPrefix": ["archive/"]
+      }
+    },
+    {
+      "action": {
+        "type": "Delete"
+      },
+      "condition": {
+        "age": 7,
+        "matchesPrefix": ["processing/temp_logs/"]
+      }
+    }
+  ]
+}
+EOF
+
+echo "Applying lifecycle policy to bucket..."
+
+gsutil lifecycle set lifecycle.json gs://${PROJECT_ID}-bucket
+
+echo "Lifecycle configuration applied successfully!"
