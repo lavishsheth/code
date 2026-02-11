@@ -15,6 +15,9 @@ echo "Initializing configuration..."
 # Get active project ID
 PROJECT_ID=$(gcloud config get-value project)
 
+# Get default compute region
+REGION=$(gcloud config get-value compute/region)
+
 # Define bucket name (lab bucket format)
 BUCKET_NAME="${PROJECT_ID}-bucket"
 
@@ -25,34 +28,24 @@ PROXY_NAME="cdn-http-proxy"
 FORWARDING_RULE_NAME="cdn-forwarding-rule"
 
 echo "Project: $PROJECT_ID"
+echo "Region: $REGION"
 echo "Bucket: $BUCKET_NAME"
 
 echo "Step 1: Create Backend Bucket with Cloud CDN enabled..."
 
-# Create backend bucket with CDN enabled
-gcloud compute backend-buckets create "$BACKEND_BUCKET_NAME" \
---gcs-bucket-name="$BUCKET_NAME" \
---enable-cdn
+gcloud compute backend-buckets create "$BACKEND_BUCKET_NAME" --gcs-bucket-name="$BUCKET_NAME" --enable-cdn
 
 echo "Step 2: Create URL map..."
 
-# Create URL map
-gcloud compute url-maps create "$URL_MAP_NAME" \
---default-backend-bucket="$BACKEND_BUCKET_NAME"
+gcloud compute url-maps create "$URL_MAP_NAME" --default-backend-bucket="$BACKEND_BUCKET_NAME"
 
 echo "Step 3: Create HTTP proxy..."
 
-# Create target HTTP proxy
-gcloud compute target-http-proxies create "$PROXY_NAME" \
---url-map="$URL_MAP_NAME"
+gcloud compute target-http-proxies create "$PROXY_NAME" --url-map="$URL_MAP_NAME"
 
 echo "Step 4: Create global forwarding rule..."
 
-# Create global forwarding rule (port 80)
-gcloud compute forwarding-rules create "$FORWARDING_RULE_NAME" \
---global \
---target-http-proxy="$PROXY_NAME" \
---ports=80
+gcloud compute forwarding-rules create "$FORWARDING_RULE_NAME" --global --target-http-proxy="$PROXY_NAME" --ports=80
 
 echo "Cloud CDN configuration completed successfully."
 echo "Your content is now cached globally using Cloud CDN."
