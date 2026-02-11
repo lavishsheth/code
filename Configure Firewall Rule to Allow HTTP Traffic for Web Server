@@ -1,0 +1,14 @@
+# Define the firewall rule name
+FIREWALL_RULE="allow-http-rule"
+
+# Specify allowed protocol and port
+ALLOWED_TRAFFIC="tcp:80"
+
+# Define source IP range
+SOURCE_RANGE="0.0.0.0/0"
+
+# Define target tag for instances
+TARGET_TAG="allow-http"
+
+# Update the firewall rule to allow HTTP traffic
+gcloud compute firewall-rules update "$FIREWALL_RULE" --allow="$ALLOWED_TRAFFIC" --source-ranges="$SOURCE_RANGE" --target-tags="$TARGET_TAG"
