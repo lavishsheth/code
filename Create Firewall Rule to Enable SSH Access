@@ -1,0 +1,11 @@
+# Get the first available VM instance name
+INSTANCE_NAME=$(gcloud compute instances list --format="value(name)" --limit=1)
+
+# Get the zone of that instance
+ZONE=$(gcloud compute instances list --format="value(zone)" --limit=1)
+
+# Retrieve the VPC network attached to the instance
+VPC=$(gcloud compute instances describe "$INSTANCE_NAME" --zone="$ZONE" --format="value(networkInterfaces[0].network.basename())")
+
+# Create a firewall rule to allow SSH access
+gcloud compute firewall-rules create allow-ssh --network="$VPC" --allow=tcp:22 --source-ranges=0.0.0.0/0 --target-tags=http-server
