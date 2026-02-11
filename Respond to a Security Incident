@@ -1,0 +1,39 @@
+# -------------------------------
+# Step 1: Define Environment Variables
+# -------------------------------
+
+# VPC network name
+VPC_NAME="client-vpc"
+
+# Compromised VM name
+COMPROMISED_VM="compromised-vm"
+
+# Bastion host name
+BASTION_HOST="bastion-host"
+
+# Subnet name
+SUBNET_NAME="my-subnet"
+
+# Firewall rules
+CRITICAL_RULE="critical-fw-rule"
+NEW_RULE="allow-ssh-from-bastion"
+
+# Get zone of compromised VM
+ZONE=$(gcloud compute instances list --filter="name=$COMPROMISED_VM" --format="value(zone)")
+
+# Get bastion host internal IP
+BASTION_IP=$(gcloud compute instances describe "$BASTION_HOST" --zone="$ZONE" --format="value(networkInterfaces[0].networkIP)")
+
+
+
+# Remove all allowed ingress rules from critical firewall rule
+gcloud compute firewall-rules update "$CRITICAL_RULE" --allow=""
+
+
+
+# Create new firewall rule to allow SSH only from bastion host IP
+gcloud compute firewall-rules create "$NEW_RULE" --network="$VPC_NAME" --allow=tcp:22 --source-ranges="$BASTION_IP/32" --target-tags="$COMPROMISED_VM"
+
+
+# Enable VPC Flow Logs for monitoring
+gcloud compute networks subnets update "$SUBNET_NAME" --region=$(echo $ZONE | rev | cut -d'-' -f2- | rev) --enable-flow-logs
