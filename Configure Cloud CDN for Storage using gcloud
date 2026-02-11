@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# ---------------------------------------------------
+# Configure Cloud CDN for Cloud Storage (gcloud)
+# ---------------------------------------------------
+# Objective:
+# Create a Cloud CDN configuration to cache static
+# content stored in a pre-created Cloud Storage bucket.
+# ---------------------------------------------------
+
+set -e
+
+echo "Initializing configuration..."
+
+# Get active project ID
+PROJECT_ID=$(gcloud config get-value project)
+
+# Define bucket name (lab bucket format)
+BUCKET_NAME="${PROJECT_ID}-bucket"
+
+# Define resource names
+BACKEND_BUCKET_NAME="cdn-backend-bucket"
+URL_MAP_NAME="cdn-url-map"
+PROXY_NAME="cdn-http-proxy"
+FORWARDING_RULE_NAME="cdn-forwarding-rule"
+
+echo "Project: $PROJECT_ID"
+echo "Bucket: $BUCKET_NAME"
+
+echo "Step 1: Create Backend Bucket with Cloud CDN enabled..."
+
+# Create backend bucket with CDN enabled
+gcloud compute backend-buckets create "$BACKEND_BUCKET_NAME" \
+--gcs-bucket-name="$BUCKET_NAME" \
+--enable-cdn
+
+echo "Step 2: Create URL map..."
+
+# Create URL map
+gcloud compute url-maps create "$URL_MAP_NAME" \
+--default-backend-bucket="$BACKEND_BUCKET_NAME"
+
+echo "Step 3: Create HTTP proxy..."
+
+# Create target HTTP proxy
+gcloud compute target-http-proxies create "$PROXY_NAME" \
+--url-map="$URL_MAP_NAME"
+
+echo "Step 4: Create global forwarding rule..."
+
+# Create global forwarding rule (port 80)
+gcloud compute forwarding-rules create "$FORWARDING_RULE_NAME" \
+--global \
+--target-http-proxy="$PROXY_NAME" \
+--ports=80
+
+echo "Cloud CDN configuration completed successfully."
+echo "Your content is now cached globally using Cloud CDN."
