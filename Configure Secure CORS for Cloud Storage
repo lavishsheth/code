@@ -1,0 +1,22 @@
+# -------------------------------
+# Step 1: Define Project and Bucket
+# -------------------------------
+
+# Fetch active project ID
+PROJECT_ID=$(gcloud config get-value project)
+
+# Define bucket name
+BUCKET_NAME="gs://${PROJECT_ID}-bucket"
+
+# -------------------------------
+# Step 2: Create CORS Configuration File
+# -------------------------------
+
+# Create CORS policy JSON file
+echo '[{"origin":["http://example.com"],"method":["GET"],"responseHeader":["Content-Type"],"maxAgeSeconds":3600}]' > cors.json
+
+# -------------------------------
+# Step 3: Apply CORS Configuration to Bucket
+# -------------------------------
+
+gcloud storage buckets update "$BUCKET_NAME" --cors-file=cors.json
