@@ -1,29 +1,3 @@
-#!/bin/bash
-
-set -e
-
-# Auto-detect region of subnet
-REGION=$(gcloud compute networks subnets list --filter="name=my-subnet" --format="get(region)")
-
-# Get bastion zone
-BASTION_ZONE=$(gcloud compute instances list --filter="name=bastion-host" --format="get(zone)")
-
-# Get bastion external IP
-BASTION_IP=$(gcloud compute instances describe bastion-host --zone="$BASTION_ZONE" --format="get(networkInterfaces[0].accessConfigs[0].natIP)")
-
-echo "Region: $REGION"
-echo "Bastion Zone: $BASTION_ZONE"
-echo "Bastion IP: $BASTION_IP"
-
-echo "Recreating critical firewall rule..."
-gcloud compute firewall-rules delete critical-fw-rule --quiet 2>/dev/null
-gcloud compute firewall-rules create critical-fw-rule --network=client-vpc --direction=INGRESS --priority=1000 --action=DENY --rules=tcp:80,tcp:22 --target-tags=compromised-vm --enable-logging
-
-echo "Allow SSH only from bastion..."
-gcloud compute firewall-rules delete allow-ssh-from-bastion --quiet 2>/dev/null
-gcloud compute firewall-rules create allow-ssh-from-bastion --network=client-vpc --action=ALLOW --direction=INGRESS --rules=tcp:22 --source-ranges="$BASTION_IP" --target-tags=compromised-vm
-
-echo "Enabling VPC Flow Logs..."
-gcloud compute networks subnets update my-subnet --region="$REGION" --enable-flow-logs
-
-echo "Configuration completed successfully."
+gcloud compute firewall-rules delete critical-fw-rule --quiet 2>/dev/null; gcloud compute firewall-rules create critical-fw-rule --network=client-vpc --direction=INGRESS --priority=1000 --action=DENY --rules=tcp:80,tcp:22 --target-tags=compromised-vm --enable-logging
+gcloud compute firewall-rules delete allow-ssh-from-bastion --quiet 2>/dev/null; gcloud compute firewall-rules create allow-ssh-from-bastion --network=client-vpc --action allow --direction=ingress --rules tcp:22 --source-ranges=$(gcloud compute instances describe bastion-host --zone=$(gcloud compute instances list --filter="name=bastion-host" --format="get(zone)") --format="get(networkInterfaces[0].accessConfigs[0].natIP)") --target-tags=compromised-vm
+gcloud compute networks subnets update my-subnet --region=$(gcloud compute networks subnets list --filter="name=my-subnet" --format="get(region)") --enable-flow-logs
