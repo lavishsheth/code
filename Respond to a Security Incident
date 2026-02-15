@@ -1,59 +1,29 @@
 #!/bin/bash
 
-# ---------------------------------------------------
-# Respond to a Security Incident - Google Cloud Lab
-# ---------------------------------------------------
-# Objectives:
-# 1. Isolate compromised VM by denying all ingress
-# 2. Allow SSH only from bastion host (external IP)
-# 3. Enable VPC Flow Logs for monitoring
-# ---------------------------------------------------
-
 set -e
 
-echo "Initializing environment variables..."
+# Auto-detect region of subnet
+REGION=$(gcloud compute networks subnets list --filter="name=my-subnet" --format="get(region)")
 
-# Network and resource names
-VPC_NAME="client-vpc"
-COMPROMISED_VM="compromised-vm"
-BASTION_HOST="bastion-host"
-SUBNET_NAME="my-subnet"
+# Get bastion zone
+BASTION_ZONE=$(gcloud compute instances list --filter="name=bastion-host" --format="get(zone)")
 
-CRITICAL_RULE="critical-fw-rule"
-NEW_RULE="allow-ssh-from-bastion"
+# Get bastion external IP
+BASTION_IP=$(gcloud compute instances describe bastion-host --zone="$BASTION_ZONE" --format="get(networkInterfaces[0].accessConfigs[0].natIP)")
 
-# Get zone of compromised VM
-ZONE=$(gcloud compute instances list --filter="name=$COMPROMISED_VM" --format="value(zone)")
+echo "Region: $REGION"
+echo "Bastion Zone: $BASTION_ZONE"
+echo "Bastion IP: $BASTION_IP"
 
-# Extract region from zone
-REGION=$(echo $ZONE | rev | cut -d'-' -f2- | rev)
+echo "Recreating critical firewall rule..."
+gcloud compute firewall-rules delete critical-fw-rule --quiet 2>/dev/null
+gcloud compute firewall-rules create critical-fw-rule --network=client-vpc --direction=INGRESS --priority=1000 --action=DENY --rules=tcp:80,tcp:22 --target-tags=compromised-vm --enable-logging
 
-# Get external IP of bastion host
-BASTION_EXTERNAL_IP=$(gcloud compute instances describe "$BASTION_HOST" --zone="$ZONE" --format="value(networkInterfaces[0].accessConfigs[0].natIP)")
+echo "Allow SSH only from bastion..."
+gcloud compute firewall-rules delete allow-ssh-from-bastion --quiet 2>/dev/null
+gcloud compute firewall-rules create allow-ssh-from-bastion --network=client-vpc --action=ALLOW --direction=INGRESS --rules=tcp:22 --source-ranges="$BASTION_IP" --target-tags=compromised-vm
 
-echo "Zone detected: $ZONE"
-echo "Region detected: $REGION"
-echo "Bastion External IP: $BASTION_EXTERNAL_IP"
+echo "Enabling VPC Flow Logs..."
+gcloud compute networks subnets update my-subnet --region="$REGION" --enable-flow-logs
 
-echo "Step 1: Isolating compromised VM..."
-
-# Update firewall rule with deny policy
-gcloud compute firewall-rules update "$CRITICAL_RULE" --direction=INGRESS --action=DENY --rules=all --source-ranges=0.0.0.0/0
-
-echo "Compromised VM isolated."
-
-echo "Step 2: Allowing SSH only from bastion host..."
-
-# Create firewall rule for SSH access from bastion external IP
-gcloud compute firewall-rules create "$NEW_RULE" --network="$VPC_NAME" --direction=INGRESS --action=ALLOW --rules=tcp:22 --source-ranges="$BASTION_EXTERNAL_IP/32" --target-tags="$COMPROMISED_VM"
-
-echo "Restricted SSH access configured."
-
-echo "Step 3: Enabling VPC Flow Logs..."
-
-# Enable VPC Flow Logs on subnet
-gcloud compute networks subnets update "$SUBNET_NAME" --region="$REGION" --enable-flow-logs
-
-echo "VPC Flow Logs enabled successfully."
-
-echo "Incident response configuration completed."
+echo "Configuration completed successfully."
