@@ -3,31 +3,46 @@
 # ---------------------------------------------
 
 # Set required variables
-BUCKET_NAME="your-gcs-bucket-name"        # Replace with your existing GCS bucket name
-BACKEND_BUCKET="static-backend-bucket"    # Backend bucket resource name
-URL_MAP="cdn-map"                         # URL map name
-PROXY="cdn-http-proxy"                    # Target HTTP proxy name
-FORWARDING_RULE="cdn-http-rule"           # Global forwarding rule name
+# Set environment variables
+# BUCKET_NAME → Your existing GCS bucket name (IMPORTANT: set this before running)
+# BACKEND_BUCKET → Backend bucket resource name
+# URL_MAP → URL map name
+# PROXY → Target HTTP proxy name
+# FORWARDING_RULE → Forwarding rule name
 
-# 1️⃣ Create Backend Bucket and Enable Cloud CDN
+BUCKET_NAME=
+BACKEND_BUCKET=static-backend-bucket
+URL_MAP=cdn-map
+PROXY=cdn-http-proxy
+FORWARDING_RULE=cdn-http-rule
+
+
+# Create backend bucket and enable Cloud CDN
+# This links your GCS bucket with Cloud CDN
 gcloud compute backend-buckets create $BACKEND_BUCKET --gcs-bucket-name=$BUCKET_NAME --enable-cdn
 
-# 2️⃣ Create URL Map and Attach Backend Bucket
+
+# Create URL map and attach backend bucket as default
 gcloud compute url-maps create $URL_MAP --default-backend-bucket=$BACKEND_BUCKET
 
-# 3️⃣ Create Target HTTP Proxy
+
+# Create target HTTP proxy using the URL map
 gcloud compute target-http-proxies create $PROXY --url-map=$URL_MAP
 
-# 4️⃣ Create Global Forwarding Rule (Port 80)
+
+# Create global forwarding rule on port 80 (creates public IP)
 gcloud compute forwarding-rules create $FORWARDING_RULE --global --target-http-proxy=$PROXY --ports=80
 
-# 5️⃣ Retrieve External IP Address
-IP_ADDRESS=$(gcloud compute forwarding-rules describe $FORWARDING_RULE --global --format="value(IPAddress)")
 
-echo "Cloud CDN is available at: http://$IP_ADDRESS"
+# Get the external IP address of the Load Balancer
+gcloud compute forwarding-rules describe $FORWARDING_RULE --global --format="value(IPAddress)"
 
-# 6️⃣ Verify objects inside the bucket
+
+# List objects inside images folder in the bucket
+# Make sure BUCKET_NAME variable is properly set
 gsutil ls gs://$BUCKET_NAME/images/
 
-# 7️⃣ Test file download from CDN
-curl -o nature.png http://$IP_ADDRESS/images/nature.png
+
+# Download image using Load Balancer IP
+# Replace IP_ADDRESS with actual IP from above command
+curl -o nature.png http://IP_ADDRESS/images/nature.png
