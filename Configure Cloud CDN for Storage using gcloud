@@ -1,51 +1,33 @@
-#!/bin/bash
+# ---------------------------------------------
+# Cloud CDN Setup for GCS Bucket (HTTP)
+# ---------------------------------------------
 
-# ---------------------------------------------------
-# Configure Cloud CDN for Cloud Storage (gcloud)
-# ---------------------------------------------------
-# Objective:
-# Create a Cloud CDN configuration to cache static
-# content stored in a pre-created Cloud Storage bucket.
-# ---------------------------------------------------
+# Set required variables
+BUCKET_NAME="your-gcs-bucket-name"        # Replace with your existing GCS bucket name
+BACKEND_BUCKET="static-backend-bucket"    # Backend bucket resource name
+URL_MAP="cdn-map"                         # URL map name
+PROXY="cdn-http-proxy"                    # Target HTTP proxy name
+FORWARDING_RULE="cdn-http-rule"           # Global forwarding rule name
 
-set -e
+# 1️⃣ Create Backend Bucket and Enable Cloud CDN
+gcloud compute backend-buckets create $BACKEND_BUCKET --gcs-bucket-name=$BUCKET_NAME --enable-cdn
 
-echo "Initializing configuration..."
+# 2️⃣ Create URL Map and Attach Backend Bucket
+gcloud compute url-maps create $URL_MAP --default-backend-bucket=$BACKEND_BUCKET
 
-# Get active project ID
-PROJECT_ID=$(gcloud config get-value project)
+# 3️⃣ Create Target HTTP Proxy
+gcloud compute target-http-proxies create $PROXY --url-map=$URL_MAP
 
-# Get default compute region
-REGION=$(gcloud config get-value compute/region)
+# 4️⃣ Create Global Forwarding Rule (Port 80)
+gcloud compute forwarding-rules create $FORWARDING_RULE --global --target-http-proxy=$PROXY --ports=80
 
-# Define bucket name (lab bucket format)
-BUCKET_NAME="${PROJECT_ID}-bucket"
+# 5️⃣ Retrieve External IP Address
+IP_ADDRESS=$(gcloud compute forwarding-rules describe $FORWARDING_RULE --global --format="value(IPAddress)")
 
-# Define resource names
-BACKEND_BUCKET_NAME="cdn-backend-bucket"
-URL_MAP_NAME="cdn-url-map"
-PROXY_NAME="cdn-http-proxy"
-FORWARDING_RULE_NAME="cdn-forwarding-rule"
+echo "Cloud CDN is available at: http://$IP_ADDRESS"
 
-echo "Project: $PROJECT_ID"
-echo "Region: $REGION"
-echo "Bucket: $BUCKET_NAME"
+# 6️⃣ Verify objects inside the bucket
+gsutil ls gs://$BUCKET_NAME/images/
 
-echo "Step 1: Create Backend Bucket with Cloud CDN enabled..."
-
-gcloud compute backend-buckets create "$BACKEND_BUCKET_NAME" --gcs-bucket-name="$BUCKET_NAME" --enable-cdn
-
-echo "Step 2: Create URL map..."
-
-gcloud compute url-maps create "$URL_MAP_NAME" --default-backend-bucket="$BACKEND_BUCKET_NAME"
-
-echo "Step 3: Create HTTP proxy..."
-
-gcloud compute target-http-proxies create "$PROXY_NAME" --url-map="$URL_MAP_NAME"
-
-echo "Step 4: Create global forwarding rule..."
-
-gcloud compute forwarding-rules create "$FORWARDING_RULE_NAME" --global --target-http-proxy="$PROXY_NAME" --ports=80
-
-echo "Cloud CDN configuration completed successfully."
-echo "Your content is now cached globally using Cloud CDN."
+# 7️⃣ Test file download from CDN
+curl -o nature.png http://$IP_ADDRESS/images/nature.png
