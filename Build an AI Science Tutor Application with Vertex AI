@@ -1,0 +1,25 @@
+import os
+import vertexai
+from vertexai.generative_models import GenerativeModel
+
+
+PROJECT_ID =
+LOCATION = 
+
+
+vertexai.init(project=PROJECT_ID, location=LOCATION)
+
+
+def generate_response(prompt: str) -> str:
+    try:
+        model = GenerativeModel("gemini-2.5-flash-lite")
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as exc:
+        return f"Request failed: {exc}"
+
+
+if __name__ == "__main__":
+    prompt = "How many planets are there in the solar system?"
+    result = generate_response(prompt)
+    print(result)
