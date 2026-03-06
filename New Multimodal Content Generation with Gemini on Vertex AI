@@ -1,0 +1,47 @@
+import urllib.request
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part
+
+PROJECT_ID = "your-project-id"
+REGION = "your-location"
+
+vertexai.init(project=PROJECT_ID, location=REGION)
+
+
+def analyze_image_with_prompt(prompt_text):
+    image_source = "https://storage.googleapis.com/cloud-samples-data/generative-ai/image/scones.jpg"
+
+    try:
+        image_response = urllib.request.urlopen(image_source)
+        image_data = image_response.read()
+
+        image_input = Part.from_data(
+            data=image_data,
+            mime_type="image/jpeg"
+        )
+
+        model = GenerativeModel("gemini-2.0-flash")
+
+        generation_params = {
+            "temperature": 0.4,
+            "max_output_tokens": 2048
+        }
+
+        result = model.generate_content(
+            [image_input, prompt_text],
+            generation_config=generation_params
+        )
+
+        output_text = result.text
+        print("\nModel Output:\n")
+        print(output_text)
+
+        return output_text
+
+    except Exception as error:
+        print(f"Request failed: {error}")
+
+
+if __name__ == "__main__":
+    user_prompt = "Generate a creative caption for this image and describe its possible flavor characteristics."
+    analyze_image_with_prompt(user_prompt)
