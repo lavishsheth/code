@@ -1,4 +1,4 @@
-BUCKET_NAME="qwiklabs-gcp-04-d6c61a671c00-5xyr-bucket"
+BUCKET_NAME=""
 
 bq mk work_day
 
