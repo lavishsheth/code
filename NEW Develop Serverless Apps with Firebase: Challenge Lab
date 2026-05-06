@@ -1,41 +1,32 @@
 #!/bin/bash
 
-clear
-
-gcloud auth list
-
-export REGION=$(gcloud compute project-info describe --format="value(commonInstanceMetadata.items[google-compute-default-region])")
+export REGION=$(gcloud compute project-info describe \
+--format="value(commonInstanceMetadata.items[google-compute-default-region])")
 
 export DATASET_SERVICE=netflix-dataset-service
 export FRONTEND_STAGING_SERVICE=frontend-staging-service
 export FRONTEND_PRODUCTION_SERVICE=frontend-production-service
 
-gcloud config set project $(gcloud projects list --format='value(PROJECT_ID)' --filter='qwiklabs-gcp')
-
-gcloud firestore databases create --location=$REGION --project=$DEVSHELL_PROJECT_ID
-
-sleep 10
-
-gcloud services enable run.googleapis.com
-
-git clone https://github.com/rosera/pet-theory.git
-
-cd pet-theory/lab06/firebase-import-csv/solution
-
-npm install
-node index.js netflix_titles_original.csv
+# TASK 3 - REST API 0.1
 
 cd ~/pet-theory/lab06/firebase-rest-api/solution-01
 
 npm install
 
-gcloud builds submit --tag gcr.io/$DEVSHELL_PROJECT_ID/rest-api:0.1 .
+gcloud artifacts repositories create rest-api-repo \
+--repository-format=docker \
+--location=$REGION
+
+gcloud builds submit \
+--tag gcr.io/$DEVSHELL_PROJECT_ID/rest-api:0.1 .
 
 gcloud run deploy $DATASET_SERVICE \
 --image gcr.io/$DEVSHELL_PROJECT_ID/rest-api:0.1 \
+--platform managed \
+--region=$REGION \
 --allow-unauthenticated \
 --max-instances=1 \
---region=$REGION
+--quiet
 
 SERVICE_URL=$(gcloud run services describe $DATASET_SERVICE \
 --region=$REGION \
@@ -43,17 +34,22 @@ SERVICE_URL=$(gcloud run services describe $DATASET_SERVICE \
 
 curl -X GET $SERVICE_URL
 
+# TASK 4 - REST API 0.2
+
 cd ~/pet-theory/lab06/firebase-rest-api/solution-02
 
 npm install
 
-gcloud builds submit --tag gcr.io/$DEVSHELL_PROJECT_ID/rest-api:0.2 .
+gcloud builds submit \
+--tag gcr.io/$DEVSHELL_PROJECT_ID/rest-api:0.2 .
 
 gcloud run deploy $DATASET_SERVICE \
 --image gcr.io/$DEVSHELL_PROJECT_ID/rest-api:0.2 \
+--platform managed \
 --region=$REGION \
 --allow-unauthenticated \
---max-instances=1
+--max-instances=1 \
+--quiet
 
 SERVICE_URL=$(gcloud run services describe $DATASET_SERVICE \
 --region=$REGION \
@@ -61,29 +57,47 @@ SERVICE_URL=$(gcloud run services describe $DATASET_SERVICE \
 
 curl -X GET $SERVICE_URL/2019
 
-npm install && npm run build
+# TASK 5 - STAGING FRONTEND
 
 cd ~/pet-theory/lab06/firebase-frontend
 
-gcloud builds submit --tag gcr.io/$DEVSHELL_PROJECT_ID/frontend-staging:0.1 .
+npm install
+npm run build
+
+gcloud builds submit \
+--tag gcr.io/$DEVSHELL_PROJECT_ID/frontend-staging:0.1 .
 
 gcloud run deploy $FRONTEND_STAGING_SERVICE \
 --image gcr.io/$DEVSHELL_PROJECT_ID/frontend-staging:0.1 \
 --platform managed \
 --region=$REGION \
---max-instances=1 \
 --allow-unauthenticated \
+--max-instances=1 \
 --quiet
 
 gcloud run services describe $FRONTEND_STAGING_SERVICE \
 --region=$REGION \
---format="value(status.url)"
+--format='value(status.url)'
 
-gcloud builds submit --tag gcr.io/$DEVSHELL_PROJECT_ID/frontend-production:0.1 .
+# TASK 6 - PRODUCTION FRONTEND
+
+cd ~/pet-theory/lab06/firebase-frontend/public
+
+sed -i "s#const REST_API_SERVICE = \".*\"#const REST_API_SERVICE = \"$SERVICE_URL/2020\"#g" app.js
+
+cd ..
+
+gcloud builds submit \
+--tag gcr.io/$DEVSHELL_PROJECT_ID/frontend-production:0.1 .
 
 gcloud run deploy $FRONTEND_PRODUCTION_SERVICE \
 --image gcr.io/$DEVSHELL_PROJECT_ID/frontend-production:0.1 \
 --platform managed \
 --region=$REGION \
+--allow-unauthenticated \
 --max-instances=1 \
 --quiet
+
+gcloud run services describe $FRONTEND_PRODUCTION_SERVICE \
+--region=$REGION \
+--format='value(status.url)'
