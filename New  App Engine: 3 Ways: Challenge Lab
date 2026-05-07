@@ -1,0 +1,48 @@
+#!/bin/bash
+
+read -p "Enter Region: " REGION
+read -p "Enter Message: " MESSAGE
+
+ZONE=$(gcloud compute instances list \
+--project=$DEVSHELL_PROJECT_ID \
+--format='value(ZONE)' | head -n 1)
+
+echo "Enabling App Engine API..."
+
+gcloud services enable appengine.googleapis.com
+
+sleep 10
+
+echo "Configuring Lab Setup Instance..."
+
+gcloud compute ssh lab-setup \
+--zone="$ZONE" \
+--project="$DEVSHELL_PROJECT_ID" \
+--quiet \
+--command="gcloud services enable appengine.googleapis.com"
+
+echo "Cloning Sample Repository..."
+
+git clone https://github.com/GoogleCloudPlatform/python-docs-samples.git
+
+cd python-docs-samples/appengine/standard_python3/hello_world || exit
+
+echo "Updating Application Message..."
+
+sed -i "32c\    return \"$MESSAGE\"" main.py
+
+if [ "$REGION" == "us-west" ]; then
+  REGION="us-west1"
+fi
+
+echo "Creating App Engine Application..."
+
+gcloud app create \
+--service-account=$DEVSHELL_PROJECT_ID@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com \
+--region=$REGION
+
+echo "Deploying Application..."
+
+gcloud app deploy --quiet
+
+echo "Lab Completed Successfully"
