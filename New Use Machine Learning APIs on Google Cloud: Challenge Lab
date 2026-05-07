@@ -1,0 +1,58 @@
+#!/bin/bash
+
+read -p "Enter LANGUAGE (e.g. en): " LANGUAGE
+read -p "Enter LOCAL (e.g. en_US): " LOCAL
+read -p "Enter BIGQUERY_ROLE: " BIGQUERY_ROLE
+read -p "Enter CLOUD_STORAGE_ROLE: " CLOUD_STORAGE_ROLE
+
+echo "Creating Service Account..."
+
+gcloud iam service-accounts create sample-sa
+
+echo "Assigning IAM Roles..."
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+--member=serviceAccount:sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com \
+--role=$BIGQUERY_ROLE
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+--member=serviceAccount:sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com \
+--role=$CLOUD_STORAGE_ROLE
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+--member=serviceAccount:sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com \
+--role=roles/serviceusage.serviceUsageConsumer
+
+echo "Waiting for IAM propagation..."
+sleep 120
+
+echo "Creating Service Account Key..."
+
+gcloud iam service-accounts keys create sample-sa-key.json \
+--iam-account=sample-sa@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com
+
+export GOOGLE_APPLICATION_CREDENTIALS=${PWD}/sample-sa-key.json
+
+echo "Downloading Image Analysis Script..."
+
+wget -O analyze-images-v2.py \
+https://raw.githubusercontent.com/guys-in-the-cloud/cloud-skill-boosts/main/Challenge-labs/Integrate%20with%20Machine%20Learning%20APIs%3A%20Challenge%20Lab/analyze-images-v2.py
+
+echo "Updating Locale..."
+
+sed -i "s/'en'/'${LOCAL}'/g" analyze-images-v2.py
+
+echo "Running Image Analysis..."
+
+python3 analyze-images-v2.py
+python3 analyze-images-v2.py $DEVSHELL_PROJECT_ID $DEVSHELL_PROJECT_ID
+
+echo "Fetching BigQuery Results..."
+
+bq query --use_legacy_sql=false \
+"SELECT locale, COUNT(locale) as lcount 
+FROM image_classification_dataset.image_text_detail 
+GROUP BY locale 
+ORDER BY lcount DESC"
+
+echo "Lab Completed Successfully"
