@@ -46,3 +46,26 @@ echo "Deploying Application..."
 gcloud app deploy --quiet
 
 echo "Lab Completed Successfully"
+
+
+
+#!/bin/bash
+
+ZONE=$(gcloud compute instances list \
+--format='value(zone)' | head -n 1)
+
+echo "Downloading Hello World App on lab-setup VM..."
+
+gcloud compute ssh lab-setup \
+--zone=$ZONE \
+--quiet \
+--command="cd ~ && git clone https://github.com/GoogleCloudPlatform/python-docs-samples.git"
+
+echo "Opening Hello World Directory..."
+
+gcloud compute ssh lab-setup \
+--zone=$ZONE \
+--quiet \
+--command="cd ~/python-docs-samples/appengine/standard_python3/hello_world && pwd"
+
+echo "Task Completed Successfully"
