@@ -113,19 +113,12 @@ gcloud run deploy $FRONTEND_PRODUCTION_SERVICE \
 
 
 
-export REGION=$(gcloud compute project-info describe \
---format="value(commonInstanceMetadata.items[google-compute-default-region])")
-
 export SERVICE_URL=$(gcloud run services describe netflix-dataset-service \
 --region=$REGION \
 --format='value(status.url)')
 
 # TASK 5
 cd ~/pet-theory/lab06/firebase-frontend
-
-npm install
-
-npm run build
 
 gcloud builds submit \
 --tag $REGION-docker.pkg.dev/$DEVSHELL_PROJECT_ID/rest-api-repo/frontend-staging:0.1
@@ -140,7 +133,9 @@ gcloud run deploy frontend-staging-service \
 # TASK 6
 cd ~/pet-theory/lab06/firebase-frontend/public
 
-sed -i "s|const REST_API_SERVICE = \".*\"|const REST_API_SERVICE = \"$SERVICE_URL/\"|g" app.js
+sed -i "s|const REST_API_SERVICE = .*|const REST_API_SERVICE = '$SERVICE_URL';|g" app.js
+
+sed -i "s|\${REST_API_SERVICE}/\${year}|\${REST_API_SERVICE}/\${year}|g" app.js
 
 cd ~/pet-theory/lab06/firebase-frontend
 
