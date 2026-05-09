@@ -1,0 +1,72 @@
+#!/bin/bash
+
+clear
+
+read -p "Enter Zone: " ZONE
+read -p "Enter Monolith Name: " MON_IDENT
+read -p "Enter Cluster Name: " CLUSTER
+read -p "Enter Orders Service Name: " ORD_IDENT
+read -p "Enter Products Service Name: " PROD_IDENT
+read -p "Enter Frontend Name: " FRONT_IDENT
+
+export PROJECT_ID=$(gcloud config get-value project)
+
+gcloud config set compute/zone $ZONE
+gcloud services enable cloudbuild.googleapis.com container.googleapis.com
+
+git clone https://github.com/googlecodelabs/monolith-to-microservices.git
+cd ~/monolith-to-microservices
+
+./setup.sh
+
+cd ~/monolith-to-microservices/monolith
+
+gcloud builds submit --tag gcr.io/${PROJECT_ID}/${MON_IDENT}:1.0.0 .
+
+gcloud container clusters create $CLUSTER --num-nodes 3
+
+kubectl create deployment $MON_IDENT \
+  --image=gcr.io/${PROJECT_ID}/${MON_IDENT}:1.0.0
+
+kubectl expose deployment $MON_IDENT \
+  --type=LoadBalancer \
+  --port 80 \
+  --target-port 8080
+
+cd ~/monolith-to-microservices/microservices/src/orders
+
+gcloud builds submit --tag gcr.io/${PROJECT_ID}/${ORD_IDENT}:1.0.0 .
+
+cd ~/monolith-to-microservices/microservices/src/products
+
+gcloud builds submit --tag gcr.io/${PROJECT_ID}/${PROD_IDENT}:1.0.0 .
+
+kubectl create deployment $ORD_IDENT \
+  --image=gcr.io/${PROJECT_ID}/${ORD_IDENT}:1.0.0
+
+kubectl expose deployment $ORD_IDENT \
+  --type=LoadBalancer \
+  --port 80 \
+  --target-port 8081
+
+kubectl create deployment $PROD_IDENT \
+  --image=gcr.io/${PROJECT_ID}/${PROD_IDENT}:1.0.0
+
+kubectl expose deployment $PROD_IDENT \
+  --type=LoadBalancer \
+  --port 80 \
+  --target-port 8082
+
+cd ~/monolith-to-microservices/microservices/src/frontend
+
+gcloud builds submit --tag gcr.io/${PROJECT_ID}/${FRONT_IDENT}:1.0.0 .
+
+kubectl create deployment $FRONT_IDENT \
+  --image=gcr.io/${PROJECT_ID}/${FRONT_IDENT}:1.0.0
+
+kubectl expose deployment $FRONT_IDENT \
+  --type=LoadBalancer \
+  --port 80 \
+  --target-port 8080
+
+echo "Lab Completed Successfully"
