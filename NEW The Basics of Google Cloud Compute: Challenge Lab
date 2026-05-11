@@ -1,0 +1,92 @@
+#!/bin/bash
+
+clear
+
+export PROJECT_ID=$(gcloud config get-value project)
+
+export ZONE=$(gcloud compute project-info describe \
+--format="value(commonInstanceMetadata.items[google-compute-default-zone])")
+
+if [[ -z "$ZONE" ]]; then
+    export ZONE="us-central1-a"
+fi
+
+export REGION=$(echo $ZONE | sed 's/-[a-z]$//')
+
+if [[ -z "$REGION" ]]; then
+    export REGION="us-central1"
+fi
+
+BUCKET_NAME="${PROJECT_ID}-bucket"
+
+if ! gsutil ls -b "gs://${BUCKET_NAME}" >/dev/null 2>&1; then
+    gsutil mb -l US "gs://${BUCKET_NAME}"
+fi
+
+if gcloud compute instances describe my-instance \
+--zone=$ZONE --format="get(name)" >/dev/null 2>&1; then
+    gcloud compute instances delete my-instance \
+    --zone=$ZONE \
+    --quiet
+    sleep 10
+fi
+
+gcloud compute instances create my-instance \
+--machine-type=e2-medium \
+--zone=$ZONE \
+--image-project=debian-cloud \
+--image-family=debian-12 \
+--boot-disk-size=10GB \
+--boot-disk-type=pd-balanced \
+--tags=http-server
+
+if gcloud compute disks describe mydisk \
+--zone=$ZONE --format="get(name)" >/dev/null 2>&1; then
+    gcloud compute disks delete mydisk \
+    --zone=$ZONE \
+    --quiet
+    sleep 5
+fi
+
+gcloud compute disks create mydisk \
+--size=200GB \
+--zone=$ZONE
+
+gcloud compute instances attach-disk my-instance \
+--disk=mydisk \
+--zone=$ZONE
+
+sleep 30
+
+cat > prepare_disk.sh <<'EOF'
+#!/bin/bash
+
+sudo apt update -y
+sudo apt install nginx -y
+sudo systemctl start nginx
+sudo systemctl enable nginx
+EOF
+
+chmod +x prepare_disk.sh
+
+gcloud compute scp prepare_disk.sh \
+my-instance:/tmp/ \
+--project=$PROJECT_ID \
+--zone=$ZONE \
+--quiet
+
+gcloud compute ssh my-instance \
+--project=$PROJECT_ID \
+--zone=$ZONE \
+--quiet \
+--command="bash /tmp/prepare_disk.sh"
+
+rm -f prepare_disk.sh
+
+EXTERNAL_IP=$(gcloud compute instances describe my-instance \
+--zone=$ZONE \
+--format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+
+echo "Web Server URL: http://${EXTERNAL_IP}"
+
+echo "Lab Completed Successfully"
