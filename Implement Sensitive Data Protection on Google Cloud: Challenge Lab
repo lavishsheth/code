@@ -1,0 +1,178 @@
+```bash
+#!/bin/bash
+
+clear
+
+echo "Starting DLP lab setup..."
+echo
+
+echo "Creating redact request..."
+
+cat > redact-request.json <<EOF_END
+{
+  "item": {
+    "value": "Please update my records with the following information:\n Email address: foo@example.com,\nNational Provider Identifier: 1245319599"
+  },
+  "deidentifyConfig": {
+    "infoTypeTransformations": {
+      "transformations": [{
+        "primitiveTransformation": {
+          "replaceWithInfoTypeConfig": {}
+        }
+      }]
+    }
+  },
+  "inspectConfig": {
+    "infoTypes": [
+      {
+        "name": "EMAIL_ADDRESS"
+      },
+      {
+        "name": "US_HEALTHCARE_NPI"
+      }
+    ]
+  }
+}
+EOF_END
+
+echo "Calling DLP API..."
+
+curl -s \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  https://dlp.googleapis.com/v2/projects/$DEVSHELL_PROJECT_ID/content:deidentify \
+  -d @redact-request.json \
+  -o redact-response.txt
+
+echo "Uploading result..."
+
+gsutil cp redact-response.txt gs://$DEVSHELL_PROJECT_ID-redact
+
+echo "Creating structured template..."
+
+cat <<EOF > template.json
+{
+  "deidentifyTemplate": {
+    "deidentifyConfig": {
+      "recordTransformations": {
+        "fieldTransformations": [
+          {
+            "fields": [
+              { "name": "bank name" },
+              { "name": "zip code" }
+            ],
+            "primitiveTransformation": {
+              "characterMaskConfig": {
+                "maskingCharacter": "#"
+              }
+            }
+          },
+          {
+            "fields": [
+              { "name": "message" }
+            ],
+            "infoTypeTransformations": {
+              "transformations": [
+                {
+                  "primitiveTransformation": {
+                    "replaceWithInfoTypeConfig": {}
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "displayName": "structured_data_template"
+  },
+  "locationId": "us",
+  "templateId": "structured_data_template"
+}
+EOF
+
+curl -X POST -s \
+-H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+-H "Content-Type: application/json" \
+-d @template.json \
+"https://dlp.googleapis.com/v2/projects/$DEVSHELL_PROJECT_ID/locations/us/deidentifyTemplates"
+
+echo "Creating unstructured template..."
+
+cat > template.json <<'EOF_END'
+{
+  "deidentifyTemplate": {
+    "deidentifyConfig": {
+      "infoTypeTransformations": {
+        "transformations": [
+          {
+            "primitiveTransformation": {
+              "replaceConfig": {
+                "newValue": {
+                  "stringValue": "[redacted]"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "displayName": "unstructured_data_template"
+  },
+  "templateId": "unstructured_data_template"
+}
+EOF_END
+
+curl -X POST -s \
+-H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+-H "Content-Type: application/json" \
+-d @template.json \
+"https://dlp.googleapis.com/v2/projects/$DEVSHELL_PROJECT_ID/locations/us/deidentifyTemplates"
+
+echo "Creating DLP job configuration..."
+
+# Keep your existing job-configuration.json block exactly as it is here
+
+echo "Submitting job trigger..."
+
+curl -s \
+-H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+-H "Content-Type: application/json" \
+https://dlp.googleapis.com/v2/projects/$DEVSHELL_PROJECT_ID/locations/us/jobTriggers \
+-d @job-configuration.json
+
+echo "Waiting for trigger initialization..."
+
+for ((i=60; i>=0; i--)); do
+  echo -ne "\rTime remaining: $i seconds"
+  sleep 1
+done
+
+echo
+echo "Activating trigger..."
+
+curl --request POST \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "X-Goog-User-Project: $DEVSHELL_PROJECT_ID" \
+  "https://dlp.googleapis.com/v2/projects/$DEVSHELL_PROJECT_ID/locations/us/jobTriggers/dlp_job:activate"
+
+cd
+
+cleanup_files() {
+    for file in *; do
+        if [[ "$file" == gsp* || "$file" == arc* || "$file" == shell* ]]; then
+            if [[ -f "$file" ]]; then
+                rm "$file"
+                echo "Removed: $file"
+            fi
+        fi
+    done
+}
+
+cleanup_files
+
+echo
+echo "Lab completed successfully."
+```
