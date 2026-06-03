@@ -1,0 +1,342 @@
+bash
+#!/bin/bash
+
+echo "Starting lab setup..."
+
+read -p "Enter DATASET value: " DATASET
+read -p "Enter BUCKET value: " BUCKET
+read -p "Enter TABLE value: " TABLE
+read -p "Enter BUCKET_URL_1 value: " BUCKET_URL_1
+read -p "Enter BUCKET_URL_2 value: " BUCKET_URL_2
+
+echo "Enabling API Keys service..."
+gcloud services enable apikeys.googleapis.com
+
+echo "Creating API key..."
+gcloud alpha services api-keys create \
+  --display-name="awesome"
+
+echo "Getting API key information..."
+
+KEY_NAME=$(gcloud alpha services api-keys list \
+  --format="value(name)" \
+  --filter="displayName=awesome")
+
+API_KEY=$(gcloud alpha services api-keys get-key-string \
+  $KEY_NAME \
+  --format="value(keyString)")
+
+echo "Getting region information..."
+
+REGION=$(gcloud compute project-info describe \
+  --format="value(commonInstanceMetadata.items[google-compute-default-region])")
+
+PROJECT_ID=$(gcloud config get-value project)
+
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" \
+  --format="json" | jq -r '.projectNumber')
+
+echo "Creating BigQuery dataset..."
+bq mk $DATASET
+
+echo "Creating Cloud Storage bucket..."
+gsutil mb gs://$BUCKET
+
+echo "Downloading lab files..."
+
+gsutil cp gs://cloud-training/gsp323/lab.csv .
+gsutil cp gs://cloud-training/gsp323/lab.schema .
+
+echo "Creating schema file..."
+
+cat > lab.schema <<EOF
+[
+  {"type":"STRING","name":"guid"},
+  {"type":"BOOLEAN","name":"isActive"},
+  {"type":"STRING","name":"firstname"},
+  {"type":"STRING","name":"surname"},
+  {"type":"STRING","name":"company"},
+  {"type":"STRING","name":"email"},
+  {"type":"STRING","name":"phone"},
+  {"type":"STRING","name":"address"},
+  {"type":"STRING","name":"about"},
+  {"type":"TIMESTAMP","name":"registered"},
+  {"type":"FLOAT","name":"latitude"},
+  {"type":"FLOAT","name":"longitude"}
+]
+EOF
+
+echo "Creating BigQuery table..."
+
+bq mk --table \
+  $DATASET.$TABLE \
+  lab.schema
+
+echo "Starting Dataflow job..."
+
+gcloud dataflow jobs run awesome-jobs \
+  --gcs-location gs://dataflow-templates-$REGION/latest/GCS_Text_to_BigQuery \
+  --region $REGION \
+  --worker-machine-type e2-standard-2 \
+  --staging-location gs://$DEVSHELL_PROJECT_ID-marking/temp \
+  --parameters \
+inputFilePattern=gs://cloud-training/gsp323/lab.csv,\
+JSONPath=gs://cloud-training/gsp323/lab.schema,\
+outputTable=$DEVSHELL_PROJECT_ID:$DATASET.$TABLE,\
+bigQueryLoadingTemporaryDirectory=gs://$DEVSHELL_PROJECT_ID-marking/bigquery_temp,\
+javascriptTextTransformGcsPath=gs://cloud-training/gsp323/lab.js,\
+javascriptTextTransformFunctionName=transform
+
+echo "Granting IAM permissions..."
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+  --member="serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+  --role="roles/storage.admin"
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+  --member=user:$USER_EMAIL \
+  --role=roles/dataproc.editor
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+  --member=user:$USER_EMAIL \
+  --role=roles/storage.objectViewer
+
+echo "Updating subnet configuration..."
+
+gcloud compute networks subnets update default \
+  --region $REGION \
+  --enable-private-ip-google-access
+
+echo "Creating service account..."
+
+gcloud iam service-accounts create awesome \
+  --display-name="Natural Language Service Account"
+
+sleep 15
+
+echo "Creating service account key..."
+
+gcloud iam service-accounts keys create ~/key.json \
+  --iam-account awesome@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com
+
+sleep 15
+
+export GOOGLE_APPLICATION_CREDENTIALS="/home/$USER/key.json"
+
+sleep 30
+
+gcloud auth activate-service-account \
+  awesome@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com \
+  --key-file=$GOOGLE_APPLICATION_CREDENTIALS
+
+echo "Running Natural Language API entity analysis..."
+
+gcloud ml language analyze-entities \
+  --content="Old Norse texts portray Odin as one-eyed and long-bearded, frequently wielding a spear named Gungnir and wearing a cloak and a broad hat." \
+  > result.json
+
+
+echo "Authenticating user account..."
+
+gcloud auth login --no-launch-browser --quiet
+
+echo "Uploading Natural Language API results..."
+
+gsutil cp result.json $BUCKET_URL_2
+
+echo "Creating Speech-to-Text request..."
+
+cat > request.json <<EOF
+{
+  "config": {
+    "encoding": "FLAC",
+    "languageCode": "en-US"
+  },
+  "audio": {
+    "uri": "gs://cloud-training/gsp323/task3.flac"
+  }
+}
+EOF
+
+echo "Running Speech-to-Text API..."
+
+curl -s -X POST \
+  -H "Content-Type: application/json" \
+  --data-binary @request.json \
+  "https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" \
+  > result.json
+
+echo "Uploading speech recognition results..."
+
+gsutil cp result.json $BUCKET_URL_1
+
+echo "Creating Video Intelligence service account..."
+
+gcloud iam service-accounts create quickstart
+
+sleep 15
+
+echo "Generating service account key..."
+
+gcloud iam service-accounts keys create key.json \
+  --iam-account quickstart@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com
+
+sleep 15
+
+echo "Activating service account..."
+
+gcloud auth activate-service-account \
+  --key-file key.json
+
+echo "Preparing Video Intelligence request..."
+
+cat > request.json <<EOF
+{
+  "inputUri": "gs://spls/gsp154/video/train.mp4",
+  "features": [
+    "TEXT_DETECTION"
+  ]
+}
+EOF
+
+echo "Submitting video annotation request..."
+
+curl -s \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  'https://videointelligence.googleapis.com/v1/videos:annotate' \
+  -d @request.json
+
+echo "Retrieving annotation results..."
+
+curl -s \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  'https://videointelligence.googleapis.com/v1/operations/OPERATION_FROM_PREVIOUS_REQUEST' \
+  > result1.json
+
+sleep 30
+
+echo "Running speech recognition again..."
+
+curl -s -X POST \
+  -H "Content-Type: application/json" \
+  --data-binary @request.json \
+  "https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" \
+  > result.json
+
+echo "Submitting second video annotation request..."
+
+curl -s \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  'https://videointelligence.googleapis.com/v1/videos:annotate' \
+  -d @request.json
+
+echo "Retrieving updated annotation results..."
+
+curl -s \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  'https://videointelligence.googleapis.com/v1/operations/OPERATION_FROM_PREVIOUS_REQUEST' \
+  > result1.json
+
+check_progress() {
+
+  while true; do
+
+    echo
+    read -p "Have you checked Task 3 and Task 4 progress? (Y/N): " user_input
+
+    if [[ "$user_input" == "Y" || "$user_input" == "y" ]]; then
+      echo "Continuing..."
+      break
+
+    elif [[ "$user_input" == "N" || "$user_input" == "n" ]]; then
+      echo "Please verify task progress before continuing."
+
+    else
+      echo "Enter Y or N."
+    fi
+
+  done
+}
+
+
+echo "Authenticating user account..."
+
+gcloud auth login --no-launch-browser --quiet
+
+echo "Creating Dataproc cluster..."
+
+gcloud dataproc clusters create awesome \
+  --enable-component-gateway \
+  --region $REGION \
+  --master-machine-type e2-standard-2 \
+  --master-boot-disk-type pd-balanced \
+  --master-boot-disk-size 100 \
+  --num-workers 2 \
+  --worker-machine-type e2-standard-2 \
+  --worker-boot-disk-type pd-balanced \
+  --worker-boot-disk-size 100 \
+  --image-version 2.2-debian12 \
+  --project $DEVSHELL_PROJECT_ID
+
+echo "Getting VM information..."
+
+VM_NAME=$(gcloud compute instances list \
+  --project="$DEVSHELL_PROJECT_ID" \
+  --format=json | jq -r '.[0].name')
+
+ZONE=$(gcloud compute instances list "$VM_NAME" \
+  --format='csv[no-heading](zone)')
+
+echo "Copying data to HDFS..."
+
+gcloud compute ssh \
+  --zone "$ZONE" \
+  "$VM_NAME" \
+  --project "$DEVSHELL_PROJECT_ID" \
+  --quiet \
+  --command="hdfs dfs -cp gs://cloud-training/gsp323/data.txt /data.txt"
+
+echo "Copying data to local storage..."
+
+gcloud compute ssh \
+  --zone "$ZONE" \
+  "$VM_NAME" \
+  --project "$DEVSHELL_PROJECT_ID" \
+  --quiet \
+  --command="gsutil cp gs://cloud-training/gsp323/data.txt /data.txt"
+
+echo "Submitting Spark PageRank job..."
+
+gcloud dataproc jobs submit spark \
+  --cluster=awesome \
+  --region=$REGION \
+  --class=org.apache.spark.examples.SparkPageRank \
+  --jars=file:///usr/lib/spark/examples/jars/spark-examples.jar \
+  --project=$DEVSHELL_PROJECT_ID \
+  -- /data.txt
+
+echo
+echo "Lab completed successfully."
+echo
+
+cleanup_files() {
+
+  for file in *; do
+
+    if [[ "$file" == gsp* || "$file" == arc* || "$file" == shell* ]]; then
+
+      if [[ -f "$file" ]]; then
+        rm "$file"
+        echo "Removed: $file"
+      fi
+
+    fi
+
+  done
+}
+
+cleanup_files
