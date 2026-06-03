@@ -1,0 +1,189 @@
+```bash
+#!/bin/bash
+
+read -p "Enter metric name: " custom_metric
+read -p "Enter threshold value: " VALUE
+read -p "Enter notification email: " USER_EMAIL
+
+echo "Checking active account..."
+gcloud auth list
+
+PROJECT_ID=$DEVSHELL_PROJECT_ID
+
+echo "Project ID: $PROJECT_ID"
+
+gcloud services enable monitoring.googleapis.com \
+  --project="$PROJECT_ID"
+
+ZONE=$(gcloud compute instances list \
+  --project="$PROJECT_ID" \
+  --format="get(zone)" \
+  --limit=1)
+
+gcloud config set compute/zone "$ZONE"
+
+REGION=${ZONE%-*}
+
+gcloud config set compute/region "$REGION"
+
+echo "Zone: $ZONE"
+echo "Region: $REGION"
+
+INSTANCE_ID=$(gcloud compute instances describe \
+  video-queue-monitor \
+  --project="$PROJECT_ID" \
+  --zone="$ZONE" \
+  --format="get(id)")
+
+echo "Stopping instance..."
+
+gcloud compute instances stop \
+  video-queue-monitor \
+  --project="$PROJECT_ID" \
+  --zone="$ZONE"
+
+echo "Creating startup script..."
+
+cat > startup-script.sh <<EOF
+#!/bin/bash
+
+ZONE="$ZONE"
+REGION="${ZONE%-*}"
+PROJECT_ID="$DEVSHELL_PROJECT_ID"
+
+echo "ZONE: \$ZONE"
+echo "REGION: \$REGION"
+echo "PROJECT_ID: \$PROJECT_ID"
+
+sudo apt update
+sudo apt-get install -y wget
+sudo apt-get install -y git
+
+sudo chmod 777 /usr/local/
+
+sudo wget https://go.dev/dl/go1.22.8.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.22.8.linux-amd64.tar.gz
+
+export PATH=\$PATH:/usr/local/go/bin
+
+curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+
+sudo bash add-google-cloud-ops-agent-repo.sh --also-install
+
+sudo service google-cloud-ops-agent start
+
+mkdir -p /work/go/cache
+
+export GOPATH=/work/go
+export GOCACHE=/work/go/cache
+
+cd /work/go
+
+mkdir -p video
+
+gsutil cp gs://spls/gsp338/video_queue/main.go \
+  /work/go/video/main.go
+
+go get go.opencensus.io
+go get contrib.go.opencensus.io/exporter/stackdriver
+
+export MY_PROJECT_ID="$DEVSHELL_PROJECT_ID"
+export MY_GCE_INSTANCE_ID="$INSTANCE_ID"
+export MY_GCE_INSTANCE_ZONE="$ZONE"
+
+cd /work
+
+go mod init go/video/main
+
+go mod tidy
+
+go run /work/go/video/main.go
+EOF
+
+echo "Updating startup metadata..."
+
+gcloud compute instances add-metadata \
+  video-queue-monitor \
+  --project="$PROJECT_ID" \
+  --zone="$ZONE" \
+  --metadata-from-file startup-script=startup-script.sh
+
+echo "Starting instance..."
+
+gcloud compute instances start \
+  video-queue-monitor \
+  --project="$PROJECT_ID" \
+  --zone="$ZONE"
+
+echo "Creating logging metric..."
+
+gcloud logging metrics create "$custom_metric" \
+  --description="Metric for high resolution video uploads" \
+  --log-filter='textPayload=("file_format=4K" OR "file_format=8K")'
+
+echo "Creating notification channel..."
+
+cat > email-channel.json <<EOF
+{
+  "type": "email",
+  "displayName": "VideoQueueAlerts",
+  "description": "Video Queue Monitoring Alerts",
+  "labels": {
+    "email_address": "$USER_EMAIL"
+  }
+}
+EOF
+
+gcloud beta monitoring channels create \
+  --channel-content-from-file=email-channel.json
+
+channel_info=$(gcloud beta monitoring channels list)
+
+channel_id=$(echo "$channel_info" | grep -oP 'name: \K[^ ]+' | head -n 1)
+
+echo "Creating alert policy..."
+
+cat > video-queue-alert.json <<EOF
+{
+  "displayName": "VideoQueueMonitoring",
+  "userLabels": {},
+  "conditions": [
+    {
+      "displayName": "High Resolution Video Upload Rate",
+      "conditionThreshold": {
+        "filter": "resource.type = \"gce_instance\" AND metric.type = \"logging.googleapis.com/user/$custom_metric\"",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "crossSeriesReducer": "REDUCE_NONE",
+            "perSeriesAligner": "ALIGN_RATE"
+          }
+        ],
+        "comparison": "COMPARISON_GT",
+        "duration": "0s",
+        "trigger": {
+          "count": 1
+        },
+        "thresholdValue": $VALUE
+      }
+    }
+  ],
+  "alertStrategy": {
+    "notificationPrompts": [
+      "OPENED"
+    ]
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "notificationChannels": [
+    "$channel_id"
+  ],
+  "severity": "SEVERITY_UNSPECIFIED"
+}
+EOF
+
+gcloud alpha monitoring policies create \
+  --policy-from-file=video-queue-alert.json
+
+echo "Lab completed successfully."
+```
