@@ -1,0 +1,239 @@
+export USER_EMAIL=""
+export LAB_ZONE=""
+export PUBSUB_TOPIC=""
+export FUNCTION_NAME=""
+
+#!/bin/bash
+
+echo "Starting Google Cloud Thumbnail Automation Lab..."
+
+REGION="${LAB_ZONE%-*}"
+
+gcloud services enable \
+  artifactregistry.googleapis.com \
+  cloudfunctions.googleapis.com \
+  cloudbuild.googleapis.com \
+  eventarc.googleapis.com \
+  run.googleapis.com \
+  logging.googleapis.com \
+  pubsub.googleapis.com
+
+sleep 30
+
+PROJECT_NUMBER=$(gcloud projects describe $DEVSHELL_PROJECT_ID --format='value(projectNumber)')
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+  --member=serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com \
+  --role=roles/eventarc.eventReceiver
+
+sleep 20
+
+SERVICE_ACCOUNT=$(gsutil kms serviceaccount -p $DEVSHELL_PROJECT_ID)
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+  --member="serviceAccount:${SERVICE_ACCOUNT}" \
+  --role='roles/pubsub.publisher'
+
+sleep 20
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+  --member=serviceAccount:service-$PROJECT_NUMBER@gcp-sa-pubsub.iam.gserviceaccount.com \
+  --role=roles/iam.serviceAccountTokenCreator
+
+sleep 20
+
+gsutil mb -l $REGION gs://$DEVSHELL_PROJECT_ID-bucket
+
+gcloud pubsub topics create $PUBSUB_TOPIC
+
+mkdir thumbnail-generator
+cd thumbnail-generator
+
+cat > index.js <<'EOF'
+const functions = require('@google-cloud/functions-framework');
+const crc32 = require("fast-crc32c");
+const { Storage } = require('@google-cloud/storage');
+const { PubSub } = require('@google-cloud/pubsub');
+const imagemagick = require("imagemagick-stream");
+
+const storage = new Storage();
+
+functions.cloudEvent('FUNCTION_PLACEHOLDER', cloudEvent => {
+  const event = cloudEvent.data;
+
+  console.log(`Processing event from bucket: ${event.bucket}`);
+
+  const fileName = event.name;
+  const bucketName = event.bucket;
+  const thumbnailSize = "64x64";
+
+  const bucket = storage.bucket(bucketName);
+  const topicName = "TOPIC_PLACEHOLDER";
+  const pubsub = new PubSub();
+
+  if (fileName.search("64x64_thumbnail") === -1) {
+
+    const splitFileName = fileName.split('.');
+    const fileExtension = splitFileName[splitFileName.length - 1];
+    const fileNameWithoutExt =
+      fileName.substring(0, fileName.length - fileExtension.length);
+
+    if (
+      fileExtension.toLowerCase() === 'png' ||
+      fileExtension.toLowerCase() === 'jpg'
+    ) {
+
+      console.log(`Generating thumbnail for ${fileName}`);
+
+      const sourceObject = bucket.file(fileName);
+
+      const thumbnailFileName =
+        fileNameWithoutExt +
+        thumbnailSize +
+        '_thumbnail.' +
+        fileExtension;
+
+      const targetObject = bucket.file(thumbnailFileName);
+
+      const sourceStream = sourceObject.createReadStream();
+      const targetStream = targetObject.createWriteStream();
+
+      const resizeImage =
+        imagemagick()
+          .resize(thumbnailSize)
+          .quality(90);
+
+      sourceStream
+        .pipe(resizeImage)
+        .pipe(targetStream);
+
+      return new Promise((resolve, reject) => {
+
+        targetStream
+          .on("error", err => {
+            console.log(err);
+            reject(err);
+          })
+          .on("finish", () => {
+
+            console.log(
+              `Thumbnail created: ${thumbnailFileName}`
+            );
+
+            targetObject.setMetadata({
+              contentType:
+                'image/' + fileExtension.toLowerCase()
+            });
+
+            pubsub
+              .topic(topicName)
+              .publisher()
+              .publish(Buffer.from(thumbnailFileName))
+              .then(messageId => {
+                console.log(
+                  `Pub/Sub message sent: ${messageId}`
+                );
+              })
+              .catch(err => {
+                console.error(err);
+              });
+
+            resolve();
+          });
+      });
+
+    } else {
+      console.log(
+        `Unsupported file type detected`
+      );
+    }
+
+  } else {
+    console.log(
+      `Thumbnail already exists for this image`
+    );
+  }
+});
+EOF
+
+sed -i "8c\functions.cloudEvent('$FUNCTION_NAME', cloudEvent => {" index.js
+sed -i "18c\  const topicName = '$PUBSUB_TOPIC';" index.js
+
+cat > package.json <<EOF
+{
+  "name": "thumbnail-generator",
+  "version": "1.0.0",
+  "description": "Cloud Function based image thumbnail generator",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.0.0",
+    "@google-cloud/pubsub": "^2.0.0",
+    "@google-cloud/storage": "^5.0.0",
+    "fast-crc32c": "1.0.4",
+    "imagemagick-stream": "4.1.1"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=4.3.2"
+  }
+}
+EOF
+
+PROJECT_ID=$(gcloud config get-value project)
+
+BUCKET_SERVICE_ACCOUNT="${PROJECT_ID}@${PROJECT_ID}.iam.gserviceaccount.com"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member=serviceAccount:$BUCKET_SERVICE_ACCOUNT \
+  --role=roles/pubsub.publisher
+
+deploy_cloud_function() {
+
+  gcloud functions deploy $FUNCTION_NAME \
+    --gen2 \
+    --runtime nodejs20 \
+    --trigger-resource $DEVSHELL_PROJECT_ID-bucket \
+    --trigger-event google.storage.object.finalize \
+    --entry-point $FUNCTION_NAME \
+    --region=$REGION \
+    --source . \
+    --quiet
+}
+
+SERVICE_NAME="$FUNCTION_NAME"
+
+while true; do
+
+  deploy_cloud_function
+
+  if gcloud run services describe \
+      $SERVICE_NAME \
+      --region $REGION \
+      &> /dev/null; then
+
+      echo "Deployment completed successfully."
+      break
+
+  else
+
+      echo "Waiting for service deployment..."
+      sleep 20
+
+  fi
+
+done
+
+curl -o sample-image.jpg \
+https://storage.googleapis.com/cloud-training/gsp315/map.jpg
+
+gsutil cp sample-image.jpg \
+gs://$DEVSHELL_PROJECT_ID-bucket/sample-image.jpg
+
+gcloud projects remove-iam-policy-binding \
+$DEVSHELL_PROJECT_ID \
+--member=user:$USER_EMAIL \
+--role=roles/viewer
+
+echo "Lab completed successfully."
