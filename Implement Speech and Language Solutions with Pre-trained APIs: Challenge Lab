@@ -1,0 +1,149 @@
+# ==========================================
+# Google Cloud Speech & Translation Lab
+# ==========================================
+
+# Connect to VM
+gcloud compute ssh lab-vm
+
+# ----------------------------
+# User-defined Variables
+# ----------------------------
+export API_KEY=""
+
+tts_response_file=""
+speech_request_json=""
+speech_response_json=""
+translate_input_text=""
+translate_output_file=""
+detect_input_text=""
+detect_output_file=""
+
+# Get current project ID
+export PROJECT_ID=$(gcloud config get-value project)
+
+# Activate Python environment
+source venv/bin/activate
+
+# ==========================================
+# Task 2 - Text to Speech
+# ==========================================
+
+cat > speech_synthesis.json <<EOF
+{
+  "input": {
+    "text": "Cloud Text-to-Speech API enables developers to generate realistic speech from text. It supports natural sounding voices and outputs audio in formats such as MP3 and WAV."
+  },
+  "voice": {
+    "languageCode": "en-GB",
+    "name": "en-GB-Standard-A",
+    "ssmlGender": "FEMALE"
+  },
+  "audioConfig": {
+    "audioEncoding": "MP3"
+  }
+}
+EOF
+
+# Generate speech audio
+curl -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+     -H "Content-Type: application/json; charset=utf-8" \
+     -d @speech_synthesis.json \
+     "https://texttospeech.googleapis.com/v1/text:synthesize" \
+     > "$tts_response_file"
+
+# ==========================================
+# Decode Audio Response
+# ==========================================
+
+cat > decode_audio.py <<EOF
+import json
+import argparse
+from base64 import decodebytes
+
+def save_audio(input_file, output_file):
+    with open(input_file, "r") as f:
+        response = json.load(f)
+
+    audio_content = response["audioContent"]
+
+    with open(output_file, "wb") as audio_file:
+        audio_file.write(
+            decodebytes(audio_content.encode("utf-8"))
+        )
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+
+    args = parser.parse_args()
+
+    save_audio(args.input, args.output)
+EOF
+
+python decode_audio.py \
+    --input "$tts_response_file" \
+    --output generated_audio.mp3
+
+# ==========================================
+# Task 3 - Speech Recognition
+# ==========================================
+
+AUDIO_SOURCE="gs://cloud-samples-data/speech/corbeau_renard.flac"
+
+cat > "$speech_request_json" <<EOF
+{
+  "config": {
+    "encoding": "FLAC",
+    "sampleRateHertz": 44100,
+    "languageCode": "fr-FR"
+  },
+  "audio": {
+    "uri": "$AUDIO_SOURCE"
+  }
+}
+EOF
+
+# Send speech recognition request
+curl -s -X POST \
+     -H "Content-Type: application/json" \
+     --data-binary @"$speech_request_json" \
+     "https://speech.googleapis.com/v1/speech:recognize?key=${API_KEY}" \
+     -o "$speech_response_json"
+
+# ==========================================
+# Install JSON Processor
+# ==========================================
+
+sudo apt-get update -y
+sudo apt-get install jq -y
+
+# ==========================================
+# Task 4 - Translation API
+# ==========================================
+
+translation_result=$(curl -s -X POST \
+  -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+  -H "Content-Type: application/json; charset=utf-8" \
+  -d "{\"q\":\"$translate_input_text\"}" \
+  "https://translation.googleapis.com/language/translate/v2?key=${API_KEY}&source=ja&target=en")
+
+echo "$translation_result" > "$translate_output_file"
+
+# ==========================================
+# Task 5 - Language Detection
+# ==========================================
+
+decoded_text=$(python3 -c "
+import urllib.parse
+print(urllib.parse.unquote('$detect_input_text'))
+")
+
+curl -s -X POST \
+  -H "Authorization: Bearer $(gcloud auth application-default print-access-token)" \
+  -H "Content-Type: application/json; charset=utf-8" \
+  -d "{\"q\":[\"$decoded_text\"]}" \
+  "https://translation.googleapis.com/language/translate/v2/detect?key=${API_KEY}" \
+  -o "$detect_output_file"
+
+echo "Language detection completed."
