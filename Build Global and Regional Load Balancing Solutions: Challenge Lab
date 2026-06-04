@@ -1,5 +1,5 @@
-export REGION_A =   
-export REGION_B = 
+REGION_A =   
+REGION_B = 
 
 # ─────────────────────────────────────────────
 # Step 1: Create Regional MIG
