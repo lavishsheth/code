@@ -2,6 +2,19 @@ export REGION_A="us-central1"
 export REGION_B="us-east1"
 
 # ─────────────────────────────────────────────
+# Step 0: Create Instance Template
+# ─────────────────────────────────────────────
+gcloud compute instance-templates create template-proxy-internal \
+    --region=$REGION_B \
+    --network=lb-network \
+    --subnet=lb-backend-subnet-region-b \
+    --tags=tag-proxy-internal \
+    --image-family=debian-12 \
+    --image-project=debian-cloud \
+    --machine-type=e2-micro \
+    --no-address
+
+# ─────────────────────────────────────────────
 # Step 1: Create Regional MIG
 # ─────────────────────────────────────────────
 gcloud compute instance-groups managed create mig-proxy-internal \
@@ -40,12 +53,12 @@ gcloud compute health-checks create tcp hc-internal-proxy \
     --port=80
 
 # ─────────────────────────────────────────────
-# Step 4: Reserve Internal Static IP
-# (Done via Console: VPC Network → IP Addresses → Reserve Internal)
-# Name: ip-internal-proxy | Region: REGION_B
-# Network: lb-network | Subnet: lb-backend-subnet-region-b
-# Purpose: Shared Load Balancer VIP
+# Step 4: Reserve Internal Static IP (CLI instead of Console)
 # ─────────────────────────────────────────────
+gcloud compute addresses create ip-internal-proxy \
+    --region=$REGION_B \
+    --subnet=lb-backend-subnet-region-b \
+    --purpose=SHARED_LOADBALANCER_VIP
 
 # ─────────────────────────────────────────────
 # Step 5: Create Backend Service and Add Backend
@@ -63,7 +76,27 @@ gcloud compute backend-services add-backend internal-proxy-backend \
     --region=$REGION_B
 
 # ─────────────────────────────────────────────
-# Step 6: Create Client VM
+# Step 6: Create TCP Proxy
+# ─────────────────────────────────────────────
+gcloud compute target-tcp-proxies create tcp-proxy-internal \
+    --backend-service=internal-proxy-backend \
+    --region=$REGION_B
+
+# ─────────────────────────────────────────────
+# Step 7: Create Forwarding Rule on Port 110
+# ─────────────────────────────────────────────
+gcloud compute forwarding-rules create rule-internal-proxy \
+    --load-balancing-scheme=INTERNAL_MANAGED \
+    --network=lb-network \
+    --subnet=lb-backend-subnet-region-b \
+    --address=ip-internal-proxy \
+    --ports=110 \
+    --target-tcp-proxy=tcp-proxy-internal \
+    --target-tcp-proxy-region=$REGION_B \
+    --region=$REGION_B
+
+# ─────────────────────────────────────────────
+# Step 8: Create Client VM
 # ─────────────────────────────────────────────
 gcloud compute instances create vm-client-internal \
     --zone=${REGION_B}-b \
@@ -73,11 +106,12 @@ gcloud compute instances create vm-client-internal \
     --tags=allow-ssh
 
 # ─────────────────────────────────────────────
-# Step 7: Validate Access
+# Step 9: Validate Access
 # ─────────────────────────────────────────────
 LB_IP=$(gcloud compute addresses describe ip-internal-proxy \
     --region=$REGION_B \
     --format="value(address)")
 
 echo "Internal LB IP: $LB_IP"
-echo "SSH into vm-client-internal and run: curl http://$LB_IP:110"
+echo "SSH into vm-client-internal and run:"
+echo "curl http://$LB_IP:110"
