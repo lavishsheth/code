@@ -1,5 +1,5 @@
-REGION_A =   
-REGION_B = 
+export REGION_A="us-central1"
+export REGION_B="us-east1"
 
 # ─────────────────────────────────────────────
 # Step 1: Create Regional MIG
