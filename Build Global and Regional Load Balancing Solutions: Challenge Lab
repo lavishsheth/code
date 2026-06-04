@@ -1,13 +1,5 @@
-#!/bin/bash
-
-set -e
-
-read -p "Enter REGION_A: " REGION_A
-read -p "Enter REGION_B: " REGION_B
-
-echo "export REGION_A=$REGION_A" >> ~/.bashrc
-echo "export REGION_B=$REGION_B" >> ~/.bashrc
-source ~/.bashrc
+export REGION_A =   
+export REGION_B = 
 
 # ─────────────────────────────────────────────
 # Step 1: Create Regional MIG
