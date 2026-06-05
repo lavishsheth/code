@@ -1,117 +1,347 @@
-export REGION_A="us-central1"
-export REGION_B="us-east1"
+#!/bin/bash
+# =============================================================================
+# GSP539 - Build Global and Regional Load Balancing Solutions
+# Complete Lab Script
+# =============================================================================
+# USAGE:
+#   1. Open Cloud Shell in your Google Cloud lab
+#   2. Set REGION_A and REGION_B below to match your lab's assigned regions
+#   3. Run: chmod +x gsp539_lab_script.sh && ./gsp539_lab_script.sh
+#      OR run each section manually by copying the commands
+# =============================================================================
 
-# ─────────────────────────────────────────────
-# Step 0: Create Instance Template
-# ─────────────────────────────────────────────
-gcloud compute instance-templates create template-proxy-internal \
-    --region=$REGION_B \
-    --network=lb-network \
-    --subnet=lb-backend-subnet-region-b \
-    --tags=tag-proxy-internal \
-    --image-family=debian-12 \
-    --image-project=debian-cloud \
-    --machine-type=e2-micro \
-    --no-address
+set -e  # Exit on any error
 
-# ─────────────────────────────────────────────
-# Step 1: Create Regional MIG
-# ─────────────────────────────────────────────
+# =============================================================================
+# CONFIGURATION — UPDATE THESE BEFORE RUNNING
+# =============================================================================
+export REGION_A="us-central1"       # Replace with your lab's Region A
+export REGION_B="us-east1"          # Replace with your lab's Region B
+export PROJECT=$(gcloud config get-value project)
+export NETWORK="lb-network"
+
+echo "============================================="
+echo " GSP539 Lab Script"
+echo " Project : $PROJECT"
+echo " Region A: $REGION_A"
+echo " Region B: $REGION_B"
+echo " Network : $NETWORK"
+echo "============================================="
+echo ""
+
+# =============================================================================
+# TASK 1 — SECURE INTERNAL TRANSACTION PROCESSOR (REGIONAL INTERNAL PROXY NLB)
+# =============================================================================
+echo ">>> TASK 1: Regional Internal Proxy NLB"
+echo "---------------------------------------------"
+
+# --- Step 1.1: Create MIG in Region B ---
+echo "[1.1] Creating MIG: mig-proxy-internal in $REGION_B ..."
 gcloud compute instance-groups managed create mig-proxy-internal \
-    --template=template-proxy-internal \
-    --size=1 \
-    --region=$REGION_B
+  --template=template-proxy-internal \
+  --region=$REGION_B \
+  --size=2
 
-gcloud compute instance-groups managed set-named-ports mig-proxy-internal \
-    --named-ports=tcp80:80 \
-    --region=$REGION_B
+gcloud compute instance-groups set-named-ports mig-proxy-internal \
+  --region=$REGION_B \
+  --named-ports=tcp80:80
 
-# ─────────────────────────────────────────────
-# Step 2: Create Firewall Rules
-# ─────────────────────────────────────────────
-gcloud compute firewall-rules create fw-allow-hc-proxy-internal \
-    --network=lb-network \
-    --action=ALLOW \
-    --direction=INGRESS \
-    --source-ranges=130.211.0.0/22,35.191.0.0/16 \
-    --target-tags=tag-proxy-internal \
-    --rules=tcp:80
+echo "      Done: mig-proxy-internal created."
 
-gcloud compute firewall-rules create fw-allow-proxy-subnet-internal \
-    --network=lb-network \
-    --action=ALLOW \
-    --direction=INGRESS \
-    --source-ranges=10.129.0.0/23 \
-    --target-tags=tag-proxy-internal \
-    --rules=tcp:80
+# --- Step 1.2: Firewall rule — health checks (TCP 80) ---
+echo "[1.2] Creating firewall rule for health checks ..."
+gcloud compute firewall-rules create fw-allow-health-check-proxy-internal \
+  --network=$NETWORK \
+  --action=ALLOW \
+  --direction=INGRESS \
+  --source-ranges=130.211.0.0/22,35.191.0.0/16 \
+  --target-tags=tag-proxy-internal \
+  --rules=tcp:80
 
-# ─────────────────────────────────────────────
-# Step 3: Create Health Check
-# ─────────────────────────────────────────────
-gcloud compute health-checks create tcp hc-internal-proxy \
-    --region=$REGION_B \
-    --port=80
+echo "      Done: health check firewall rule created."
 
-# ─────────────────────────────────────────────
-# Step 4: Reserve Internal Static IP (CLI instead of Console)
-# ─────────────────────────────────────────────
+# --- Step 1.3: Firewall rule — proxy-only subnet (TCP 80) ---
+echo "[1.3] Creating firewall rule for proxy-only subnet 10.129.0.0/23 ..."
+gcloud compute firewall-rules create fw-allow-proxy-only-subnet-internal \
+  --network=$NETWORK \
+  --action=ALLOW \
+  --direction=INGRESS \
+  --source-ranges=10.129.0.0/23 \
+  --target-tags=tag-proxy-internal \
+  --rules=tcp:80
+
+echo "      Done: proxy-only subnet firewall rule created."
+
+# --- Step 1.4: Health check ---
+echo "[1.4] Creating regional TCP health check ..."
+gcloud compute health-checks create tcp hc-tcp-internal \
+  --region=$REGION_B \
+  --port=80
+
+echo "      Done: health check created."
+
+# --- Step 1.5: Backend service ---
+echo "[1.5] Creating internal backend service ..."
+gcloud compute backend-services create service-proxy-internal \
+  --load-balancing-scheme=INTERNAL_MANAGED \
+  --protocol=TCP \
+  --region=$REGION_B \
+  --health-checks=hc-tcp-internal \
+  --health-checks-region=$REGION_B
+
+gcloud compute backend-services add-backend service-proxy-internal \
+  --region=$REGION_B \
+  --instance-group=mig-proxy-internal \
+  --instance-group-region=$REGION_B
+
+echo "      Done: backend service created and MIG added."
+
+# --- Step 1.6: Target TCP proxy ---
+echo "[1.6] Creating target TCP proxy ..."
+gcloud compute target-tcp-proxies create proxy-target-internal \
+  --backend-service=service-proxy-internal \
+  --region=$REGION_B
+
+echo "      Done: target TCP proxy created."
+
+# --- Step 1.7: Reserve static internal IP (Shared LB VIP) ---
+echo "[1.7] Reserving static internal IP: ip-internal-proxy ..."
+
+# Detect the correct subnet name in lb-network for Region B
+SUBNET_NAME=$(gcloud compute networks subnets list \
+  --network=$NETWORK \
+  --filter="region:($REGION_B)" \
+  --format='get(name)' | head -1)
+
+echo "      Using subnet: $SUBNET_NAME"
+
 gcloud compute addresses create ip-internal-proxy \
-    --region=$REGION_B \
-    --subnet=lb-backend-subnet-region-b \
-    --purpose=SHARED_LOADBALANCER_VIP
+  --region=$REGION_B \
+  --subnet=$SUBNET_NAME \
+  --purpose=SHARED_LOADBALANCER_VIP
 
-# ─────────────────────────────────────────────
-# Step 5: Create Backend Service and Add Backend
-# ─────────────────────────────────────────────
-gcloud compute backend-services create internal-proxy-backend \
-    --load-balancing-scheme=INTERNAL_MANAGED \
-    --protocol=TCP \
-    --region=$REGION_B \
-    --health-checks=hc-internal-proxy \
-    --health-checks-region=$REGION_B
+echo "      Done: internal IP reserved."
 
-gcloud compute backend-services add-backend internal-proxy-backend \
-    --instance-group=mig-proxy-internal \
-    --instance-group-region=$REGION_B \
-    --region=$REGION_B
-
-# ─────────────────────────────────────────────
-# Step 6: Create TCP Proxy
-# ─────────────────────────────────────────────
-gcloud compute target-tcp-proxies create tcp-proxy-internal \
-    --backend-service=internal-proxy-backend \
-    --region=$REGION_B
-
-# ─────────────────────────────────────────────
-# Step 7: Create Forwarding Rule on Port 110
-# ─────────────────────────────────────────────
+# --- Step 1.8: Forwarding rule on port 110 ---
+echo "[1.8] Creating forwarding rule: rule-internal-proxy on port 110 ..."
 gcloud compute forwarding-rules create rule-internal-proxy \
-    --load-balancing-scheme=INTERNAL_MANAGED \
-    --network=lb-network \
-    --subnet=lb-backend-subnet-region-b \
-    --address=ip-internal-proxy \
-    --ports=110 \
-    --target-tcp-proxy=tcp-proxy-internal \
-    --target-tcp-proxy-region=$REGION_B \
-    --region=$REGION_B
+  --load-balancing-scheme=INTERNAL_MANAGED \
+  --network=$NETWORK \
+  --region=$REGION_B \
+  --address=ip-internal-proxy \
+  --target-tcp-proxy=proxy-target-internal \
+  --target-tcp-proxy-region=$REGION_B \
+  --ports=110
 
-# ─────────────────────────────────────────────
-# Step 8: Create Client VM
-# ─────────────────────────────────────────────
+INTERNAL_IP=$(gcloud compute addresses describe ip-internal-proxy \
+  --region=$REGION_B --format='get(address)')
+
+echo "      Done: forwarding rule created. Internal LB IP: $INTERNAL_IP"
+
+# --- Step 1.9: Deploy client VM ---
+echo "[1.9] Deploying client VM: vm-client-internal ..."
 gcloud compute instances create vm-client-internal \
-    --zone=${REGION_B}-b \
-    --machine-type=e2-micro \
-    --network=lb-network \
-    --subnet=lb-backend-subnet-region-b \
-    --tags=allow-ssh
+  --zone=${REGION_B}-b \
+  --machine-type=e2-micro \
+  --network=$NETWORK \
+  --tags=allow-ssh
 
-# ─────────────────────────────────────────────
-# Step 9: Validate Access
-# ─────────────────────────────────────────────
-LB_IP=$(gcloud compute addresses describe ip-internal-proxy \
-    --region=$REGION_B \
-    --format="value(address)")
+echo "      Done: vm-client-internal deployed."
+echo ""
+echo "  >>> VALIDATE Task 1:"
+echo "      SSH into vm-client-internal and run:"
+echo "      curl -s http://$INTERNAL_IP:110"
+echo ""
 
-echo "Internal LB IP: $LB_IP"
-echo "SSH into vm-client-internal and run:"
-echo "curl http://$LB_IP:110"
+# =============================================================================
+# TASK 2 — GLOBAL EXTERNAL MARKET DATA FEED (GLOBAL EXTERNAL ALB WITH HTTPS)
+# =============================================================================
+echo ">>> TASK 2: Global External Application Load Balancer"
+echo "---------------------------------------------"
+
+# --- Step 2.1: Create self-signed SSL certificate ---
+echo "[2.1] Generating self-signed SSL certificate ..."
+openssl genrsa -out key.pem 2048
+
+openssl req -new -x509 -key key.pem -out cert.pem -days 1 \
+  -subj "/CN=example.com"
+
+gcloud compute ssl-certificates create cert-self-signed \
+  --certificate=cert.pem \
+  --private-key=key.pem \
+  --global
+
+echo "      Done: SSL certificate cert-self-signed created."
+
+# --- Step 2.2: Create MIG in Region A ---
+echo "[2.2] Creating MIG: mig-alb-api-a in $REGION_A ..."
+gcloud compute instance-groups managed create mig-alb-api-a \
+  --template=template-alb-api \
+  --region=$REGION_A \
+  --size=2
+
+gcloud compute instance-groups set-named-ports mig-alb-api-a \
+  --region=$REGION_A \
+  --named-ports=http80:80
+
+echo "      Done: mig-alb-api-a created."
+
+# --- Step 2.3: Create MIG in Region B ---
+echo "[2.3] Creating MIG: mig-alb-api-b in $REGION_B ..."
+gcloud compute instance-groups managed create mig-alb-api-b \
+  --template=template-alb-api \
+  --region=$REGION_B \
+  --size=2
+
+gcloud compute instance-groups set-named-ports mig-alb-api-b \
+  --region=$REGION_B \
+  --named-ports=http80:80
+
+echo "      Done: mig-alb-api-b created."
+
+# --- Step 2.4: Global HTTP health check ---
+echo "[2.4] Creating global HTTP health check: http-check-alb ..."
+gcloud compute health-checks create http http-check-alb \
+  --port=80 \
+  --global
+
+echo "      Done: http-check-alb created."
+
+# --- Step 2.5: Global backend service ---
+echo "[2.5] Creating global backend service: service-alb-global ..."
+gcloud compute backend-services create service-alb-global \
+  --load-balancing-scheme=EXTERNAL_MANAGED \
+  --protocol=HTTP \
+  --global \
+  --health-checks=http-check-alb
+
+echo "      Done: service-alb-global created."
+
+# --- Step 2.6: Add both MIGs as backends (Rate mode, max RPS=1) ---
+echo "[2.6] Adding Region A backend (Rate, max RPS=1) ..."
+gcloud compute backend-services add-backend service-alb-global \
+  --global \
+  --instance-group=mig-alb-api-a \
+  --instance-group-region=$REGION_A \
+  --balancing-mode=RATE \
+  --max-rate-per-instance=1
+
+echo "      Adding Region B backend (Rate, max RPS=1) ..."
+gcloud compute backend-services add-backend service-alb-global \
+  --global \
+  --instance-group=mig-alb-api-b \
+  --instance-group-region=$REGION_B \
+  --balancing-mode=RATE \
+  --max-rate-per-instance=1
+
+echo "      Done: both backends added with max RPS=1."
+
+# --- Step 2.7: URL map ---
+echo "[2.7] Creating global URL map ..."
+gcloud compute url-maps create url-map-alb-global \
+  --default-service=service-alb-global \
+  --global
+
+echo "      Done: url-map-alb-global created."
+
+# --- Step 2.8: HTTPS target proxy ---
+echo "[2.8] Creating HTTPS target proxy ..."
+gcloud compute target-https-proxies create proxy-https-alb \
+  --url-map=url-map-alb-global \
+  --ssl-certificates=cert-self-signed \
+  --global
+
+echo "      Done: proxy-https-alb created."
+
+# --- Step 2.9: Reserve global static external IP ---
+echo "[2.9] Reserving global static external IP: ip-alb-global ..."
+gcloud compute addresses create ip-alb-global \
+  --ip-version=IPV4 \
+  --global
+
+echo "      Done: ip-alb-global reserved."
+
+# --- Step 2.10: HTTPS forwarding rule on port 443 ---
+echo "[2.10] Creating HTTPS forwarding rule on port 443 ..."
+gcloud compute forwarding-rules create rule-alb-https \
+  --load-balancing-scheme=EXTERNAL_MANAGED \
+  --address=ip-alb-global \
+  --global \
+  --target-https-proxy=proxy-https-alb \
+  --ports=443
+
+ALB_IP=$(gcloud compute addresses describe ip-alb-global \
+  --global --format='get(address)')
+
+echo "       Done: HTTPS forwarding rule created. ALB IP: $ALB_IP"
+
+# --- Step 2.11: Firewall rule for health checks & proxy ---
+echo "[2.11] Creating firewall rule: fw-allow-health-check-and-proxy ..."
+gcloud compute firewall-rules create fw-allow-health-check-and-proxy \
+  --network=$NETWORK \
+  --action=ALLOW \
+  --direction=INGRESS \
+  --source-ranges=130.211.0.0/22,35.191.0.0/16 \
+  --rules=tcp:80
+
+echo "       Done: firewall rule created."
+echo ""
+
+# =============================================================================
+# TASK 3 — FAILOVER & GLOBAL DISTRIBUTION TEST
+# =============================================================================
+echo ">>> TASK 3: Failover & Global Distribution Test"
+echo "---------------------------------------------"
+
+ALB_IP=$(gcloud compute addresses describe ip-alb-global \
+  --global --format='get(address)')
+
+echo ""
+echo "  ALB IP Address: $ALB_IP"
+echo ""
+echo "  [3.1] Run this in a separate Cloud Shell tab to watch traffic:"
+echo ""
+echo "        while true; do"
+echo "          curl -k -s https://$ALB_IP | grep 'Hello from'"
+echo "          sleep 0.5"
+echo "        done"
+echo ""
+echo "  [3.2] To simulate Region A failure, get a VM from mig-alb-api-a:"
+echo ""
+
+INSTANCE=$(gcloud compute instance-groups managed list-instances \
+  mig-alb-api-a --region=$REGION_A \
+  --format='csv[no-heading](instance)' | head -1 | awk -F'/' '{print $NF}')
+
+ZONE=$(gcloud compute instance-groups managed list-instances \
+  mig-alb-api-a --region=$REGION_A \
+  --format='csv[no-heading](instance,zone)' | head -1 | \
+  awk -F',' '{print $2}' | awk -F'/' '{print $NF}')
+
+echo "        Instance : $INSTANCE"
+echo "        Zone     : $ZONE"
+echo ""
+echo "        SSH and stop nginx:"
+echo "        gcloud compute ssh $INSTANCE --zone=$ZONE --command='sudo systemctl stop nginx'"
+echo ""
+echo "  [3.3] To restore Region A:"
+echo "        gcloud compute ssh $INSTANCE --zone=$ZONE --command='sudo systemctl start nginx'"
+echo ""
+
+# =============================================================================
+# SUMMARY
+# =============================================================================
+echo "============================================="
+echo " ALL RESOURCES DEPLOYED SUCCESSFULLY"
+echo "============================================="
+echo " Internal NLB IP : $INTERNAL_IP (port 110)"
+echo " External ALB IP : $ALB_IP     (port 443)"
+echo ""
+echo " Validate Task 1:"
+echo "   SSH into vm-client-internal"
+echo "   curl -s http://$INTERNAL_IP:110"
+echo ""
+echo " Validate Task 2 & 3:"
+echo "   curl -k https://$ALB_IP"
+echo "   (Allow 2-3 minutes for the LB to become healthy)"
+echo "============================================="
