@@ -256,6 +256,17 @@ explore: +order_items {
 
 
 
+Update training_ecommerce.model
+explore: +order_items {
+
+    query: Btecky {
+      dimensions: [created_month]
+      measures: [total_profit, total_revenue]
+    }
+    }
+
+
+
 Task 3. Extend a view
 Create View
 view: VIEW_NAME {
