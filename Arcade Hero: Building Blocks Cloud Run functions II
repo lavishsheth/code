@@ -1,43 +1,64 @@
 #!/bin/bash
 
-export PROJECT_ID=$(gcloud config get-value project)
-REGION1="us-central1"
-FUNCTION_NAME1="cf-http-go"
-REGION2="us-central1"
-FUNCTION_NAME2="cf-pubsub-go"
+# List active authentication
+gcloud auth list
 
-mkdir -p cloud-function-http-go
-cat > cloud-function-http-go/main.go <<EOF
-package p
+# Retrieve default region from project metadata
+export REGION=$(gcloud compute project-info describe --format="value(commonInstanceMetadata.items[google-compute-default-region])")
+
+# Retrieve project ID and project number
+export PROJECT_ID=$(gcloud config get-value project)
+export PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format='value(projectNumber)')
+
+# Enable necessary APIs
+gcloud services enable cloudfunctions.googleapis.com
+gcloud services enable run.googleapis.com
+gcloud services enable pubsub.googleapis.com
+gcloud services enable artifactregistry.googleapis.com
+gcloud services enable cloudbuild.googleapis.com
+
+# Create directory for HTTP function
+mkdir -p ~/hello-go-http && cd ~/hello-go-http
+
+# Create main.go for HTTP function
+cat > main.go <<EOF
+package function
 
 import (
-	"net/http"
+    "fmt"
+    "net/http"
 )
 
-func HelloHTTP(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello from Go HTTP Cloud Function!"))
+// HelloGo is the entry point for HTTP
+func HelloGo(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprint(w, "Hello from Cloud Functions (Go 2nd Gen)!")
 }
 EOF
 
-cat > cloud-function-http-go/go.mod <<EOF
-module cloudfunction
+# Create go.mod
+cat > go.mod <<EOF
+module example.com/hellogo
 
-go 1.21
+go 1.22
 EOF
 
-gcloud functions deploy ${FUNCTION_NAME1} \
+# Deploy HTTP-triggered function
+gcloud functions deploy cf-go \
   --gen2 \
-  --runtime=go121 \
-  --region=${REGION1} \
-  --source=cloud-function-http-go \
-  --entry-point=HelloHTTP \
+  --region=${REGION} \
+  --runtime=go122 \
   --trigger-http \
-  --max-instances=5 \
-  --allow-unauthenticated
+  --allow-unauthenticated \
+  --entry-point=HelloGo \
+  --min-instances=5 \
+  --source=.
 
-mkdir -p cloud-function-pubsub-go
-cat > cloud-function-pubsub-go/main.go <<EOF
-package p
+# Create directory for Pub/Sub function
+mkdir -p ~/hello-go-pubsub && cd ~/hello-go-pubsub
+
+# Create main.go for Pub/Sub function
+cat > main.go <<EOF
+package function
 
 import (
 	"context"
@@ -49,31 +70,34 @@ type PubSubMessage struct {
 }
 
 func HelloPubSub(ctx context.Context, m PubSubMessage) error {
-	log.Printf("Hello, %s!", string(m.Data))
+	name := string(m.Data)
+	if name == "" {
+		name = "World"
+	}
+	log.Printf("Hello, %s!", name)
 	return nil
 }
 EOF
 
-cat > cloud-function-pubsub-go/go.mod <<EOF
-module cloudfunction
+# Create go.mod
+cat > go.mod <<EOF
+module example.com/hellogo
 
-go 1.21
+go 1.22
 EOF
 
-gcloud functions deploy ${FUNCTION_NAME2} \
-  --gen2 \
-  --runtime=go121 \
-  --region=${REGION2} \
-  --source=cloud-function-pubsub-go \
-  --entry-point=HelloPubSub \
-  --trigger-topic=cf-pubsub \
-  --max-instances=5
+# Grant necessary role to Pub/Sub service account
+PUBSUB_SA="service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+  --member="serviceAccount:${PUBSUB_SA}" \
+  --role="roles/iam.serviceAccountTokenCreator"
 
-cd ~
-for file in *; do
-  if [[ "$file" == gsp* || "$file" == arc* || "$file" == shell* ]]; then
-    if [[ -f "$file" ]]; then
-      rm "$file"
-    fi
-  fi
-done
+# Deploy Pub/Sub-triggered function, answering 'n' to any prompts
+echo "n" | gcloud functions deploy cf-pubsub \
+  --gen2 \
+  --region=${REGION} \
+  --runtime=go122 \
+  --trigger-topic=cf-pubsub \
+  --entry-point=HelloPubSub \
+  --min-instances=5 \
+  --source=.
